@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { parseFeatures, parseHobbies } from "@/lib/companionSerialize";
+import { requireAdmin } from "@/lib/adminAuth";
 
-// Insights aggregates — returns everything the /admin/insights page needs in
-// one round-trip so the page renders in a single waterfall.
-export async function GET() {
+export async function GET(req: Request) {
+  const deny = requireAdmin(req);
+  if (deny) return deny;
   const [configs, surveys] = await Promise.all([
     prisma.companionConfig.findMany({
       include: {

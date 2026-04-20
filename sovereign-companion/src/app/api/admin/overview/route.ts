@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getKPIs, getConversionFunnel } from "@/lib/analytics";
+import { requireAdmin } from "@/lib/adminAuth";
 
 function formatDate(d: Date): string {
   const y = d.getFullYear();
@@ -22,6 +23,8 @@ function ago(date: Date, now: Date): string {
 }
 
 export async function GET(req: NextRequest) {
+  const deny = requireAdmin(req);
+  if (deny) return deny;
   const url = new URL(req.url);
   const days = Math.max(1, Math.min(365, Number(url.searchParams.get("days") ?? 30)));
   const now = new Date();

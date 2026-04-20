@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { parseJsonObject } from "@/lib/companionSerialize";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ userId: string }> },
 ) {
+  const deny = requireAdmin(req);
+  if (deny) return deny;
   const { userId } = await params;
 
   const user = await prisma.user.findUnique({

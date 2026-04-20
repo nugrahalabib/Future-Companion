@@ -6,6 +6,7 @@ import {
   buildOrderBy,
   parseFilterFromSearchParams,
 } from "@/lib/admin/filterBuilder";
+import { requireAdmin } from "@/lib/adminAuth";
 
 type ExportKind = "respondents" | "survey" | "transcripts";
 
@@ -28,6 +29,8 @@ const anonymize = (u: {
 });
 
 export async function GET(req: NextRequest) {
+  const deny = requireAdmin(req);
+  if (deny) return deny;
   const url = new URL(req.url);
   const format = (url.searchParams.get("format") as "json" | "csv") || "csv";
   const kind = (url.searchParams.get("kind") as ExportKind) || "respondents";

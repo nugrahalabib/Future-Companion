@@ -6,11 +6,14 @@ import {
   parseFilterFromSearchParams,
 } from "@/lib/admin/filterBuilder";
 import { parseFeatures, parseHobbies } from "@/lib/companionSerialize";
+import { requireAdmin } from "@/lib/adminAuth";
 
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 200;
 
 export async function GET(req: NextRequest) {
+  const deny = requireAdmin(req);
+  if (deny) return deny;
   const url = new URL(req.url);
   const filter = parseFilterFromSearchParams(url.searchParams);
   const page = Math.max(1, Number(url.searchParams.get("page") ?? 1));

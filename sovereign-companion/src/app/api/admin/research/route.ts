@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/adminAuth";
 
 // Every Likert field we surface in the Research tab. Grouped by survey section
 // so the UI can render them with the right contextual heading.
@@ -78,7 +79,9 @@ function sentimentOf(text: string): "positive" | "negative" | "neutral" {
   return "neutral";
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const deny = requireAdmin(req);
+  if (deny) return deny;
   const surveys = await prisma.surveyResult.findMany({
     include: {
       user: {

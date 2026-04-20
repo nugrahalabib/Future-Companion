@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(req: NextRequest) {
+  const deny = requireAdmin(req);
+  if (deny) return deny;
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") ?? "").trim();
   const minLength = Number(url.searchParams.get("minLength") ?? 1);
