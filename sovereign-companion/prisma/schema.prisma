@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String           @id @default(cuid())
+  fullName           String
+  nickname           String           @default("")
+  email              String           @unique
+  passwordHash       String           @default("")
+  age                Int
+  profession         String
+  relationshipStatus String
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  companionConfig    CompanionConfig?
+  session            Session?
+  surveyResult       SurveyResult?
+  transcripts        Transcript[]
+}
+
+model CompanionConfig {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+
+  // Pre-creator-studio intro (what user wants AI to call them + AI's own name)
+  userNickname    String   @default("")
+  companionName   String   @default("")
+
+  gender          String   @default("female")
+  faceShape       String?
+  hairStyle       String?
+  bodyBuild       String?
+  skinTone        String   @default("medium")
+
+  // Stored as JSON string for SQLite compatibility
+  features        String   @default("{}")
+
+  role            String   @default("romantic-partner")
+  dominanceLevel  Float    @default(50)
+  innocenceLevel  Float    @default(50)
+  emotionalLevel  Float    @default(50)
+  humorStyle      Float    @default(50)
+
+  // Stored as JSON string (array of hobby ids)
+  hobbies         String   @default("[]")
+
+  finalImagePath  String?
+
+  // Stored as JSON string
+  fullConfig      String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Transcript {
+  id            String   @id @default(cuid())
+  userId        String
+  role          String
+  content       String
+  sequenceOrder Int
+  metadata      String?
+  timestamp     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SurveyResult {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+
+  // Legacy / core ratings (kept required so analytics never breaks)
+  personaAccuracy        Int
+  replacementWillingness Int
+  mostInfluentialFeature String
+  overallExperience      Int
+  uiEaseOfUse            Int
+  conceptFeasibility     Int
+  additionalFeedback     String?
+
+  // Section B — Expectations & first impressions
+  priorAiFamiliarity       Int?
+  expectationAlignment     Int?
+  firstImpression          String?
+  discoverySource          String?
+
+  // Section C — Creator Studio (physical customization)
+  customizationDepth       Int?
+  stepFlowIntuitiveness    Int?
+  visualFidelity           Int?
+  customizationTimeFeel    String?
+  missingCustomization     String?
+
+  // Section D — Assembly / Final Reveal
+  revealImpact             Int?
+  revealMatchedImagination Int?
+  revealEmotions           String?
+
+  // Section E — Encounter (voice)
+  voiceNaturalness         Int?
+  voiceResponsiveness      Int?
+  companionPresence        Int?
+  conversationDepth        Int?
+  preferredLongerSession   Int?
+
+  // Section F — Ethics & societal impact
+  ethicalConcernLevel        Int?
+  ethicalConcerns            String?
+  impactOnHumanRelations     Int?
+  socialAcceptancePrediction Int?
+
+  // Section G — Market / purchase intent
+  purchaseIntent             Int?
+  expectedPriceRange         String?
+  preferredPricingModel      String?
+  willingnessToPayPremium    Int?
+  primaryUseCase             String?
+  targetDemographic          String?
+
+  // Section H — Emotional impact
+  emotionalConnection      Int?
+  feltJudgedOrSafe         Int?
+  wouldMissCompanion       Int?
+  lonelinessAssist         Int?
+
+  // Section I — Product feedback (open-ended)
+  biggestConcern           String?
+  mostMemorableMoment      String?
+  improvementSuggestion    String?
+
+  // Section J — Recommendation
+  npsScore                 Int?
+  exhibitionQuality        Int?
+  willRecommend            Int?
+
+  // Full payload archive (raw JSON) — safety net for future analysis
+  rawPayload               String?
+
+  createdAt              DateTime @default(now())
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AppSettings {
+  id               Int      @id @default(1)
+  demoEnabled      Boolean  @default(true)
+  pausedMessage    String   @default("")
+  scheduleEnabled  Boolean  @default(false)
+  activeFromHour   Int      @default(9)
+  activeToHour     Int      @default(21)
+  updatedAt        DateTime @updatedAt
+  updatedBy        String   @default("")
+}
+
+model Session {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  startedAt         DateTime  @default(now())
+  registeredAt      DateTime?
+  customizedAt      DateTime?
+  assembledAt       DateTime?
+  encounterStartAt  DateTime?
+  encounterEndAt    DateTime?
+  checkoutAt        DateTime?
+  surveyAt          DateTime?
+  completedAt       DateTime?
+  encounterDuration Int?
+  dropped           Boolean   @default(false)
+  dropStage         String?
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    # In production (companion.agentbuff.id) the reverse proxy should
+    # forward public :443 → this container's 2970. Bind only to loopback
+    # on the host when behind a proxy; open to 0.0.0.0 only for local dev.
+    ports:
+      - "2970:2970"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      NEXT_PUBLIC_GEMINI_API_KEY: ${NEXT_PUBLIC_GEMINI_API_KEY}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:2970}
+      PORT: 2970
+      HOSTNAME: 0.0.0.0
+    restart: unless-stopped

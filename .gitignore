@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+sovereign-companion/node_modules/
+
+# Build output
+.next/
+sovereign-companion/.next/
+sovereign-companion/out/
+sovereign-companion/build/
+sovereign-companion/tsconfig.tsbuildinfo
+sovereign-companion/next-env.d.ts
+
+# Env files (contain secrets — NEVER commit)
+.env
+.env.*
+!.env.example
+sovereign-companion/.env
+sovereign-companion/.env.*
+!sovereign-companion/.env.example
+
+# Databases (contain respondent PII — NEVER commit)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+sovereign-companion/prisma/dev.db
+sovereign-companion/prisma/dev.db-journal
+
+# Vercel
+.vercel
+sovereign-companion/.vercel
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Local agent / assistant state
+.claude/
+.agentbuff/
+
+# Root-level create-next-app boilerplate (active code lives in sovereign-companion/)
+/src/
+/public/
+/package.json
+/package-lock.json
+/postcss.config.mjs
+/tsconfig.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
