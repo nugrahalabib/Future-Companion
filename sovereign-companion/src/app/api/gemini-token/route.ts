@@ -1,6 +1,39 @@
 import { NextRequest } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { getDemoStatus } from "@/lib/demoMode";
+import { prisma } from "@/lib/prisma";
+
+// Per-IP token-bucket rate limit. Ephemeral tokens are single-use and short-
+// lived, but the mint call still counts toward Gemini quota and each minted
+// token lets the holder open a 20-minute audio stream. Without a limit, a
+// scraper who finds the endpoint could burn the account.
+//
+// Single-process PM2 fork mode means an in-memory Map is sufficient. If this
+// ever scales horizontally, swap to Redis.
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const RATE_LIMIT_MAX = 15; // per IP per window
+const rateBuckets = new Map<string, number[]>();
+
+function clientIp(req: NextRequest): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  const real = req.headers.get("x-real-ip");
+  if (real) return real.trim();
+  return "unknown";
+}
+
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  const bucket = (rateBuckets.get(ip) ?? []).filter((t) => t > cutoff);
+  if (bucket.length >= RATE_LIMIT_MAX) {
+    rateBuckets.set(ip, bucket);
+    return true;
+  }
+  bucket.push(now);
+  rateBuckets.set(ip, bucket);
+  return false;
+}
 
 // Mints a short-lived ephemeral token with the FULL live-session config locked
 // inside `liveConnectConstraints.config`. Per official docs:
@@ -36,18 +69,52 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const ip = clientIp(req);
+  if (rateLimited(ip)) {
+    return Response.json(
+      { error: "rate_limited", message: "Too many token requests. Try again in a few minutes." },
+      { status: 429 },
+    );
+  }
+
   let model = "gemini-2.5-flash-native-audio-preview-12-2025";
   let systemPrompt: string | undefined;
   let voiceName = "Kore";
   let languageCode: string | undefined;
+  let userId: string | undefined;
 
   try {
     const body = await req.json().catch(() => ({}));
+    if (typeof body?.userId === "string") userId = body.userId;
     if (typeof body?.model === "string") model = body.model;
     if (typeof body?.systemPrompt === "string") systemPrompt = body.systemPrompt;
     if (typeof body?.voiceName === "string" && body.voiceName) voiceName = body.voiceName;
     if (typeof body?.languageCode === "string" && body.languageCode) languageCode = body.languageCode;
   } catch {}
+
+  if (!userId) {
+    return Response.json(
+      { error: "missing_user", message: "userId required. Register and complete the creator flow first." },
+      { status: 401 },
+    );
+  }
+
+  // Session-gate: caller must be a real registered user who has already
+  // saved a companion config (i.e. finished the creator flow). This keeps
+  // the endpoint from becoming a public Gemini proxy for scrapers.
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { companionConfig: true },
+  });
+  if (!user) {
+    return Response.json({ error: "invalid_user" }, { status: 401 });
+  }
+  if (!user.companionConfig) {
+    return Response.json(
+      { error: "companion_not_ready", message: "Complete the creator flow first." },
+      { status: 403 },
+    );
+  }
 
   try {
     const ai = new GoogleGenAI({

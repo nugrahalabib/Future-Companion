@@ -153,6 +153,7 @@ export default function EncounterPage() {
   );
 
   const gemini = useGeminiLive({
+    userId: userId ?? "",
     systemPrompt,
     voiceName,
     languageCode,

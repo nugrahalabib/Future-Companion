@@ -31,6 +31,7 @@ export interface FunctionCallHandlerResult {
 }
 
 interface UseGeminiLiveOptions {
+  userId: string;
   systemPrompt: string;
   voiceName: string;
   languageCode: string;
@@ -99,11 +100,12 @@ function dumpEvent(e: any): Record<string, unknown> {
 }
 
 async function fetchEphemeralToken(payload: {
+  userId: string;
   model: string;
   systemPrompt?: string;
   voiceName?: string;
   languageCode?: string;
-}): Promise<string | null> {
+}): Promise<{ token: string } | { error: string }> {
   try {
     const res = await fetch("/api/gemini-token", {
       method: "POST",
@@ -112,21 +114,19 @@ async function fetchEphemeralToken(payload: {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      console.warn(
-        `[gemini-live] ephemeral token fetch failed (${res.status}): ${text}. Falling back to NEXT_PUBLIC_GEMINI_API_KEY.`,
-      );
-      return null;
+      return { error: `ephemeral token fetch failed (${res.status}): ${text}` };
     }
     const data = (await res.json()) as { token?: string };
-    return data?.token ?? null;
+    if (!data?.token) return { error: "ephemeral token response missing token field" };
+    return { token: data.token };
   } catch (err) {
-    console.warn("[gemini-live] ephemeral token fetch error:", err);
-    return null;
+    return { error: `ephemeral token fetch error: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
 export function useGeminiLive(options: UseGeminiLiveOptions) {
   const {
+    userId,
     systemPrompt,
     voiceName,
     languageCode,
@@ -332,21 +332,22 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
     try {
       setPhaseSafe("connecting");
 
-      // Prefer ephemeral token minted server-side. Fall back to public API key
-      // if the token endpoint is unavailable (dev mode, offline demo).
-      const ephemeral = await fetchEphemeralToken({
+      // Ephemeral token is the ONLY path — the raw GEMINI_API_KEY never
+      // leaves the server. Any failure here bubbles up as a fatal error;
+      // there is no NEXT_PUBLIC fallback.
+      const ephemeralResult = await fetchEphemeralToken({
+        userId,
         model,
         systemPrompt,
         voiceName,
         languageCode,
       });
-      const apiKey = ephemeral ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      if (!apiKey || apiKey === "your_gemini_api_key_here") {
-        const msg = "Gemini API key not configured. Set GEMINI_API_KEY on the server or NEXT_PUBLIC_GEMINI_API_KEY for local dev.";
-        handlersRef.current.onError?.(msg);
+      if ("error" in ephemeralResult) {
+        handlersRef.current.onError?.(ephemeralResult.error);
         setPhaseSafe("error");
         return;
       }
+      const apiKey = ephemeralResult.token;
 
       // Per docs: both the ephemeral-token path AND native-audio preview
       // models require v1alpha. Keep it unconditional so 2.5-native-audio
@@ -359,7 +360,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
       const config = buildConfig();
       console.debug("[gemini-live] connecting", {
         model,
-        ephemeral: !!ephemeral,
+        ephemeral: true,
         keyPreview: apiKey.slice(0, 6) + "…",
         voiceName,
         languageCode,
@@ -431,7 +432,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
               let friendly: string;
               if (!everConnected) {
                 friendly = reason
-                  ? `Gemini Live failed to open: ${reason}${code ? ` (code ${code})` : ""}. Periksa NEXT_PUBLIC_GEMINI_API_KEY / GEMINI_API_KEY dan akses preview model di Google AI Studio.`
+                  ? `Gemini Live failed to open: ${reason}${code ? ` (code ${code})` : ""}. Periksa GEMINI_API_KEY di server dan akses preview model di Google AI Studio.`
                   : `Gemini Live failed to open. Periksa API key, akses preview model, dan log Next.js untuk /api/gemini-token.`;
               } else if (!canRetry) {
                 friendly = `Gemini Live disconnected after ${attempts} reconnect attempt(s). Stopping retries.`;
