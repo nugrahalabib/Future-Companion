@@ -539,8 +539,10 @@ Jika kamu menemukan proyek ini menarik — **beri GitHub Star**. Ini membantu ka
 ### 📧 Kontak
 
 **Author:** Nugraha Labib Mujaddid
-**Email:** agentbuff.id@gmail.com
+**Email:** nugrahalabib@gmail.com
 **GitHub:** [@nugrahalabib](https://github.com/nugrahalabib)
+**Instagram:** [@nugrahalabib](https://instagram.com/nugrahalabib)
+**TikTok:** [@nugrahalabib](https://tiktok.com/@nugrahalabib)
 
 ### 📄 Lisensi
 
