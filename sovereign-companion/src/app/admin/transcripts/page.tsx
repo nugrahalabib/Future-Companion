@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import GlassPanel from "@/components/ui/GlassPanel";
 import { labelize, ROLE_LABEL, GENDER_LABEL } from "@/lib/admin/labels";
 import { useT } from "@/lib/i18n/useT";
+import { adminFetch } from "@/lib/adminFetch";
 
 interface ListRow {
   userId: string;
@@ -64,7 +65,7 @@ export default function TranscriptsPage() {
       const sp = new URLSearchParams();
       if (q) sp.set("q", q);
       sp.set("minLength", "1");
-      fetch(`/api/admin/transcripts?${sp.toString()}`)
+      adminFetch(`/api/admin/transcripts?${sp.toString()}`)
         .then((r) => r.json())
         .then((d: { rows: ListRow[] }) => {
           setList(d.rows);
@@ -81,7 +82,7 @@ export default function TranscriptsPage() {
       return;
     }
     setDetailLoading(true);
-    fetch(`/api/admin/transcripts/${selected}`)
+    adminFetch(`/api/admin/transcripts/${selected}`)
       .then((r) => r.json())
       .then((d: DetailData) => setDetail(d))
       .finally(() => setDetailLoading(false));

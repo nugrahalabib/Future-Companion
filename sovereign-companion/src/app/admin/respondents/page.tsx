@@ -16,6 +16,7 @@ import {
 } from "@/lib/admin/filterBuilder";
 import { useT } from "@/lib/i18n/useT";
 import type { Locale } from "@/stores/useLocaleStore";
+import { adminFetch } from "@/lib/adminFetch";
 
 interface Row {
   id: string;
@@ -125,7 +126,7 @@ export default function RespondentsPage() {
     setLoading(true);
     const sp = new URLSearchParams(searchParams.toString());
     sp.set("page", String(page));
-    fetch(`/api/admin/respondents?${sp.toString()}`)
+    adminFetch(`/api/admin/respondents?${sp.toString()}`)
       .then((r) => r.json())
       .then((d: ApiResponse) => {
         if (!aborted) {
@@ -190,12 +191,26 @@ export default function RespondentsPage() {
           >
             {t("admin.common.reset")}
           </button>
-          <a
-            href={`/api/admin/export?format=csv&${encodeFilterToSearchParams(filter).toString()}`}
-            className="px-3 py-2 rounded-xl text-xs font-display uppercase tracking-widest glass border border-glass-border text-text-primary hover:text-cyan-accent transition-colors"
+          <button
+            onClick={async () => {
+              const res = await adminFetch(
+                `/api/admin/export?format=csv&${encodeFilterToSearchParams(filter).toString()}`,
+              );
+              if (!res.ok) return;
+              const blob = await res.blob();
+              const href = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = href;
+              a.download = `sovereign-respondents-${Date.now()}.csv`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(href);
+            }}
+            className="px-3 py-2 rounded-xl text-xs font-display uppercase tracking-widest glass border border-glass-border text-text-primary hover:text-cyan-accent transition-colors cursor-pointer"
           >
             {t("admin.resp.export")}
-          </a>
+          </button>
         </div>
       </div>
 

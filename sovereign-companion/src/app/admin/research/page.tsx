@@ -10,6 +10,7 @@ import {
 import { labelize, ROLE_LABEL } from "@/lib/admin/labels";
 import { useT } from "@/lib/i18n/useT";
 import type { Locale } from "@/stores/useLocaleStore";
+import { adminFetch } from "@/lib/adminFetch";
 
 interface LikertItem {
   key: string;
@@ -60,7 +61,7 @@ export default function ResearchPage() {
   const [tab, setTab] = useState<Tab>("likert");
 
   useEffect(() => {
-    fetch("/api/admin/research")
+    adminFetch("/api/admin/research")
       .then((r) => r.json())
       .then((d: ResearchData) => {
         setData(d);

@@ -16,6 +16,7 @@ import {
   ROLE_LABEL, HOBBY_LABEL, GENDER_LABEL, labelize,
 } from "@/lib/admin/labels";
 import { useT } from "@/lib/i18n/useT";
+import { adminFetch } from "@/lib/adminFetch";
 import type { Locale } from "@/stores/useLocaleStore";
 
 interface WordItem { text: string; value: number }
@@ -62,8 +63,8 @@ export default function InsightsPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/admin/insights").then((r) => r.json()),
-      fetch("/api/admin/wordcloud").then((r) => r.json()),
+      adminFetch("/api/admin/insights").then((r) => r.json()),
+      adminFetch("/api/admin/wordcloud").then((r) => r.json()),
     ]).then(([d, w]: [InsightsData, WordItem[]]) => {
       setData(d);
       setWords(w);

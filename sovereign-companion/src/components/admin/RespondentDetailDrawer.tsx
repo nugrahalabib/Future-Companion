@@ -9,6 +9,7 @@ import {
 import { useT } from "@/lib/i18n/useT";
 import type { TranslateFn } from "@/lib/i18n/useT";
 import type { Locale } from "@/stores/useLocaleStore";
+import { adminFetch } from "@/lib/adminFetch";
 
 interface Props {
   userId: string | null;
@@ -69,7 +70,7 @@ export default function RespondentDetailDrawer({ userId, onClose }: Props) {
       return;
     }
     setLoading(true);
-    fetch(`/api/admin/respondents/${userId}`)
+    adminFetch(`/api/admin/respondents/${userId}`)
       .then((r) => r.json())
       .then((d: DetailData) => setData(d))
       .finally(() => setLoading(false));

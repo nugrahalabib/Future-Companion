@@ -11,6 +11,7 @@ import {
   AXIS_STROKE, GRID_STROKE,
 } from "@/lib/admin/chartTheme";
 import { useT } from "@/lib/i18n/useT";
+import { adminFetch } from "@/lib/adminFetch";
 
 interface KPIs {
   totalDemos: number;
@@ -76,7 +77,7 @@ export default function AdminOverviewPage() {
   useEffect(() => {
     let aborted = false;
     setLoading(true);
-    fetch(`/api/admin/overview?days=${rangeDays}`)
+    adminFetch(`/api/admin/overview?days=${rangeDays}`)
       .then((r) => r.json())
       .then((d: OverviewData) => {
         if (!aborted) {

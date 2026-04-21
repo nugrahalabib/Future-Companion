@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import GlassPanel from "@/components/ui/GlassPanel";
 import { useT } from "@/lib/i18n/useT";
 import type { TranslateFn } from "@/lib/i18n/useT";
+import { adminFetch } from "@/lib/adminFetch";
 
 type Kind = "respondents" | "survey" | "transcripts";
 type Fmt = "csv" | "json";
@@ -128,12 +129,24 @@ export default function ExportPage() {
             <code className="block text-[11px] text-cyan-accent break-all font-mono">
               {url}
             </code>
-            <a
-              href={url}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-accent/20 text-cyan-accent border border-cyan-accent/40 font-display font-semibold text-sm hover:bg-cyan-accent/30 transition-colors"
+            <button
+              onClick={async () => {
+                const res = await adminFetch(url);
+                if (!res.ok) return;
+                const blob = await res.blob();
+                const href = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = href;
+                a.download = `sovereign-${kind}-${Date.now()}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(href);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-accent/20 text-cyan-accent border border-cyan-accent/40 font-display font-semibold text-sm hover:bg-cyan-accent/30 transition-colors cursor-pointer"
             >
               {t("admin.export.download", { format: format.toUpperCase() })}
-            </a>
+            </button>
             <p className="text-[11px] text-text-muted">
               {t("admin.export.custom.hint")}
             </p>
