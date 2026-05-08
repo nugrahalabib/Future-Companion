@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  FACE_LABEL, GENDER_LABEL, HAIR_LABEL, BODY_LABEL, SKIN_LABEL,
-  ROLE_LABEL, HOBBY_LABEL, RELATIONSHIP_LABEL, labelize,
+  GENDER_LABEL, SKIN_LABEL,
+  ROLE_LABEL, HOBBY_LABEL, RELATIONSHIP_LABEL, labelize, labelizeAsset,
 } from "@/lib/admin/labels";
 import { useT } from "@/lib/i18n/useT";
 import type { TranslateFn } from "@/lib/i18n/useT";
 import type { Locale } from "@/stores/useLocaleStore";
 import { adminFetch } from "@/lib/adminFetch";
+import type { SurveyQuestion, SurveyTemplateShape } from "@/lib/surveyTemplate";
 
 interface Props {
   userId: string | null;
@@ -34,6 +35,7 @@ interface DetailData {
     faceShape: string | null;
     hairStyle: string | null;
     bodyBuild: string | null;
+    outfit: string | null;
     skinTone: string;
     features: { artificialWomb?: boolean; spermBank?: boolean };
     hobbies: string[];
@@ -59,10 +61,28 @@ interface DetailData {
 export default function RespondentDetailDrawer({ userId, onClose }: Props) {
   const { t, locale } = useT();
   const [data, setData] = useState<DetailData | null>(null);
+  const [template, setTemplate] = useState<SurveyTemplateShape | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<"profile" | "companion" | "survey" | "transcript" | "session">(
     "profile",
   );
+
+  // Load the active template once per drawer open — renders the survey tab
+  // dynamically from the same source the public questionnaire uses.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    adminFetch("/api/admin/survey-template")
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (d?.template) setTemplate(d.template as SurveyTemplateShape);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -163,7 +183,9 @@ export default function RespondentDetailDrawer({ userId, onClose }: Props) {
               {!loading && data && tab === "companion" && (
                 <CompanionSection data={data} t={t} locale={locale} />
               )}
-              {!loading && data && tab === "survey" && <SurveySection data={data} t={t} />}
+              {!loading && data && tab === "survey" && (
+                <SurveySection data={data} t={t} template={template} locale={locale} />
+              )}
               {!loading && data && tab === "transcript" && (
                 <TranscriptSection data={data} t={t} dateLocale={dateLocale} />
               )}
@@ -275,9 +297,10 @@ function CompanionSection({
 
       <SectionTitle>{t("admin.drawer.companion.physical")}</SectionTitle>
       <KV label={t("admin.drawer.companion.gender")} value={labelize(GENDER_LABEL, c.gender, locale)} />
-      <KV label={t("admin.drawer.companion.face")} value={labelize(FACE_LABEL, c.faceShape, locale)} />
-      <KV label={t("admin.drawer.companion.hair")} value={labelize(HAIR_LABEL, c.hairStyle, locale)} />
-      <KV label={t("admin.drawer.companion.body")} value={labelize(BODY_LABEL, c.bodyBuild, locale)} />
+      <KV label={t("admin.drawer.companion.face")} value={labelizeAsset(c.gender, "face", c.faceShape, locale)} />
+      <KV label={t("admin.drawer.companion.hair")} value={labelizeAsset(c.gender, "hair", c.hairStyle, locale)} />
+      <KV label={t("admin.drawer.companion.body")} value={labelizeAsset(c.gender, "body", c.bodyBuild, locale)} />
+      <KV label={t("admin.drawer.companion.outfit")} value={labelizeAsset(c.gender, "outfit", c.outfit, locale)} />
       <KV label={t("admin.drawer.companion.skin")} value={labelize(SKIN_LABEL, c.skinTone, locale)} />
 
       <SectionTitle>{t("admin.drawer.companion.features.section")}</SectionTitle>
@@ -349,148 +372,130 @@ function PersonaBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-const SURVEY_FIELD_GROUPS: {
-  titleKey: string;
-  fields: { key: string; kind?: "likert" | "text" | "raw" }[];
-}[] = [
-  {
-    titleKey: "admin.drawer.survey.group.core",
-    fields: [
-      { key: "personaAccuracy", kind: "likert" },
-      { key: "replacementWillingness", kind: "likert" },
-      { key: "overallExperience", kind: "likert" },
-      { key: "uiEaseOfUse", kind: "likert" },
-      { key: "conceptFeasibility", kind: "likert" },
-      { key: "mostInfluentialFeature" },
-      { key: "additionalFeedback", kind: "text" },
-    ],
-  },
-  {
-    titleKey: "admin.drawer.survey.group.expectations",
-    fields: [
-      { key: "priorAiFamiliarity", kind: "likert" },
-      { key: "expectationAlignment", kind: "likert" },
-      { key: "firstImpression", kind: "text" },
-      { key: "discoverySource" },
-    ],
-  },
-  {
-    titleKey: "admin.drawer.survey.group.creator",
-    fields: [
-      { key: "customizationDepth", kind: "likert" },
-      { key: "stepFlowIntuitiveness", kind: "likert" },
-      { key: "visualFidelity", kind: "likert" },
-      { key: "customizationTimeFeel" },
-      { key: "missingCustomization", kind: "text" },
-    ],
-  },
-  {
-    titleKey: "admin.drawer.survey.group.reveal",
-    fields: [
-      { key: "revealImpact", kind: "likert" },
-      { key: "revealMatchedImagination", kind: "likert" },
-      { key: "revealEmotions", kind: "raw" },
-    ],
-  },
-  {
-    titleKey: "admin.drawer.survey.group.encounter",
-    fields: [
-      { key: "voiceNaturalness", kind: "likert" },
-      { key: "voiceResponsiveness", kind: "likert" },
-      { key: "companionPresence", kind: "likert" },
-      { key: "conversationDepth", kind: "likert" },
-      { key: "preferredLongerSession", kind: "likert" },
-    ],
-  },
-  {
-    titleKey: "admin.drawer.survey.group.ethics",
-    fields: [
-      { key: "ethicalConcernLevel", kind: "likert" },
-      { key: "ethicalConcerns", kind: "raw" },
-      { key: "impactOnHumanRelations", kind: "likert" },
-      { key: "socialAcceptancePrediction", kind: "likert" },
-    ],
-  },
-  {
-    titleKey: "admin.drawer.survey.group.market",
-    fields: [
-      { key: "purchaseIntent", kind: "likert" },
-      { key: "expectedPriceRange" },
-      { key: "preferredPricingModel" },
-      { key: "willingnessToPayPremium", kind: "likert" },
-      { key: "primaryUseCase", kind: "raw" },
-      { key: "targetDemographic", kind: "raw" },
-    ],
-  },
-  {
-    titleKey: "admin.drawer.survey.group.emotional",
-    fields: [
-      { key: "emotionalConnection", kind: "likert" },
-      { key: "feltJudgedOrSafe", kind: "likert" },
-      { key: "wouldMissCompanion", kind: "likert" },
-      { key: "lonelinessAssist", kind: "likert" },
-    ],
-  },
-  {
-    titleKey: "admin.drawer.survey.group.openEnded",
-    fields: [
-      { key: "biggestConcern", kind: "text" },
-      { key: "mostMemorableMoment", kind: "text" },
-      { key: "improvementSuggestion", kind: "text" },
-    ],
-  },
-  {
-    titleKey: "admin.drawer.survey.group.recommendation",
-    fields: [
-      { key: "npsScore" },
-      { key: "exhibitionQuality", kind: "likert" },
-      { key: "willRecommend", kind: "likert" },
-    ],
-  },
-];
+// Read a response value preferring rawPayload (new dynamic) over legacy
+// hardcoded columns. Both are kept on the SurveyResult row.
+function readSurveyValue(qid: string, survey: Record<string, unknown>): unknown {
+  let raw: Record<string, unknown> | null = null;
+  const rawPayloadStr = survey.rawPayload;
+  if (typeof rawPayloadStr === "string" && rawPayloadStr) {
+    try {
+      const parsed = JSON.parse(rawPayloadStr);
+      if (parsed && typeof parsed === "object") {
+        raw = parsed as Record<string, unknown>;
+        // also flatten nested responses key
+        const inner = (parsed as { responses?: unknown }).responses;
+        if (inner && typeof inner === "object") {
+          raw = { ...raw, ...(inner as Record<string, unknown>) };
+        }
+      }
+    } catch {}
+  }
+  if (raw && qid in raw && raw[qid] !== "" && raw[qid] !== null && raw[qid] !== undefined) {
+    return raw[qid];
+  }
+  if (qid in survey) return survey[qid];
+  return null;
+}
 
-function SurveySection({ data, t }: { data: DetailData; t: TranslateFn }) {
+function SurveySection({
+  data,
+  t,
+  template,
+  locale,
+}: {
+  data: DetailData;
+  t: TranslateFn;
+  template: SurveyTemplateShape | null;
+  locale: Locale;
+}) {
   const s = data.survey as Record<string, unknown> | null;
   if (!s) return <p className="text-sm text-text-muted">{t("admin.drawer.survey.noneYet")}</p>;
-  const renderValue = (raw: unknown, kind?: "likert" | "text" | "raw") => {
+  if (!template) {
+    return <p className="text-sm text-text-muted">{t("admin.forms.loading")}</p>;
+  }
+
+  const renderValue = (q: SurveyQuestion, raw: unknown): React.ReactNode => {
     if (raw === null || raw === undefined || raw === "") return "—";
-    if (kind === "likert" && typeof raw === "number") {
+    if (q.type === "likert") {
+      const n = typeof raw === "number" ? raw : Number(raw);
+      if (!Number.isFinite(n)) return String(raw);
       return (
         <span className="inline-flex items-center gap-2">
-          <span className="font-display text-cyan-accent">{raw}</span>
+          <span className="font-display text-cyan-accent">{n}</span>
           <span className="inline-flex gap-0.5" aria-hidden>
-            {[1, 2, 3, 4, 5].map((n) => (
+            {[1, 2, 3, 4, 5].map((b) => (
               <span
-                key={n}
-                className={`w-3 h-1.5 rounded-sm ${n <= raw ? "bg-cyan-accent" : "bg-glass-border"}`}
+                key={b}
+                className={`w-3 h-1.5 rounded-sm ${b <= n ? "bg-cyan-accent" : "bg-glass-border"}`}
               />
             ))}
           </span>
         </span>
       );
     }
-    if (kind === "raw") {
-      if (typeof raw === "string") {
+    if (q.type === "nps") {
+      const n = typeof raw === "number" ? raw : Number(raw);
+      if (!Number.isFinite(n)) return String(raw);
+      const color = n >= 9 ? "#39FF14" : n >= 7 ? "#FFD93D" : "#FF6B6B";
+      return (
+        <span className="font-display" style={{ color }}>
+          {n} / 10
+        </span>
+      );
+    }
+    if (q.type === "multi") {
+      let arr: string[] = [];
+      if (Array.isArray(raw)) arr = raw.map(String);
+      else if (typeof raw === "string") {
         try {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) return parsed.join(", ");
-        } catch {}
+          if (Array.isArray(parsed)) arr = parsed.map(String);
+          else arr = [raw];
+        } catch {
+          arr = [raw];
+        }
       }
-      return String(raw);
+      if (arr.length === 0) return "—";
+      const optMap = new Map((q.options ?? []).map((o) => [o.value, o]));
+      return (
+        <span className="inline-flex flex-wrap gap-1">
+          {arr.map((v) => {
+            const opt = optMap.get(v);
+            const label = opt
+              ? locale === "en" ? opt.labelEn : opt.labelId
+              : v;
+            return (
+              <span
+                key={v}
+                className="px-2 py-0.5 rounded-full text-[11px] bg-cyan-accent/10 text-cyan-accent border border-cyan-accent/25"
+              >
+                {label}
+              </span>
+            );
+          })}
+        </span>
+      );
     }
-    if (kind === "text") return <span className="whitespace-pre-line">{String(raw)}</span>;
+    if (q.type === "single" || q.type === "dropdown") {
+      const opt = (q.options ?? []).find((o) => o.value === raw);
+      return opt ? (locale === "en" ? opt.labelEn : opt.labelId) : String(raw);
+    }
+    if (q.type === "text" || q.type === "longtext") {
+      return <span className="whitespace-pre-line">{String(raw)}</span>;
+    }
     return String(raw);
   };
+
   return (
     <div className="space-y-1">
-      {SURVEY_FIELD_GROUPS.map((grp) => (
-        <div key={grp.titleKey}>
-          <SectionTitle>{t(grp.titleKey)}</SectionTitle>
-          {grp.fields.map((f) => (
+      {template.sections.map((sec) => (
+        <div key={sec.id}>
+          <SectionTitle>{locale === "en" ? sec.titleEn : sec.titleId}</SectionTitle>
+          {sec.questions.map((q) => (
             <KV
-              key={f.key}
-              label={t(`admin.survey.${f.key}`)}
-              value={renderValue(s[f.key], f.kind)}
+              key={q.id}
+              label={locale === "en" ? q.labelEn : q.labelId}
+              value={renderValue(q, readSurveyValue(q.id, s))}
             />
           ))}
         </div>

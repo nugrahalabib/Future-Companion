@@ -157,6 +157,12 @@ export default function EncounterPage() {
     systemPrompt,
     voiceName,
     languageCode,
+    // Rebuild payload — server applies live admin overrides to the prompt.
+    companionConfigForRebuild: {
+      ...configSnapshot,
+      userOwnNickname,
+    } as Record<string, unknown>,
+    rebuildLocale: locale,
     enableAffectiveFeatures: true,
     functionDeclarations: COMPANION_FUNCTION_DECLARATIONS as unknown as never[],
     onAudioOutput: handleAudioOutput,

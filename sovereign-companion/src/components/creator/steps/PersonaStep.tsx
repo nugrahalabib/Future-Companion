@@ -191,7 +191,7 @@ export default function PersonaStep() {
 
   return (
     <StepShell
-      step={7}
+      step={8}
       total={TOTAL_CREATOR_STEPS}
       title={t("creator.persona.title")}
       subtitle={t("creator.persona.subtitle")}

@@ -9,6 +9,7 @@ export interface RespondentFilterState {
   faceShape?: string[];
   hairStyle?: string[];
   bodyBuild?: string[];
+  outfit?: string[];
   skinTone?: string[];
   artificialWomb?: boolean; // true = must be on, false = must be off, undef = any
   spermBank?: boolean;
@@ -56,6 +57,7 @@ export function parseFilterFromSearchParams(
     faceShape: multi("face"),
     hairStyle: multi("hair"),
     bodyBuild: multi("body"),
+    outfit: multi("outfit"),
     skinTone: multi("skin"),
     artificialWomb: bool("womb"),
     spermBank: bool("sperm"),
@@ -90,6 +92,7 @@ export function encodeFilterToSearchParams(
   putArr("face", f.faceShape);
   putArr("hair", f.hairStyle);
   putArr("body", f.bodyBuild);
+  putArr("outfit", f.outfit);
   putArr("skin", f.skinTone);
   if (f.artificialWomb !== undefined) put("womb", f.artificialWomb ? 1 : 0);
   if (f.spermBank !== undefined) put("sperm", f.spermBank ? 1 : 0);
@@ -145,6 +148,7 @@ export function buildUserWhere(
   if (f.faceShape?.length) companionConds.push({ faceShape: { in: f.faceShape } });
   if (f.hairStyle?.length) companionConds.push({ hairStyle: { in: f.hairStyle } });
   if (f.bodyBuild?.length) companionConds.push({ bodyBuild: { in: f.bodyBuild } });
+  if (f.outfit?.length) companionConds.push({ outfit: { in: f.outfit } });
   if (f.skinTone?.length) companionConds.push({ skinTone: { in: f.skinTone } });
   // features is a JSON string in SQLite — LIKE matching is the simplest
   // portable approach. `"artificialWomb":true` is unambiguous because the key
@@ -174,10 +178,13 @@ export function buildUserWhere(
     and.push({ session: { is: { surveyAt: { not: null } } } });
   if (f.droppedOnly) and.push({ session: { is: { dropped: true } } });
 
+  // Likert NOT NULL with 0 default = "not answered". Always pair the user's
+  // range with `gt: 0` so default-zero rows don't get caught by an upper-bound
+  // filter (e.g. experienceMax=2 would otherwise match every unanswered row).
   if (f.experienceMin !== undefined)
-    and.push({ surveyResult: { is: { overallExperience: { gte: f.experienceMin } } } });
+    and.push({ surveyResult: { is: { overallExperience: { gte: Math.max(1, f.experienceMin) } } } });
   if (f.experienceMax !== undefined)
-    and.push({ surveyResult: { is: { overallExperience: { lte: f.experienceMax } } } });
+    and.push({ surveyResult: { is: { overallExperience: { gt: 0, lte: f.experienceMax } } } });
 
   if (f.npsBucket === "promoter")
     and.push({ surveyResult: { is: { npsScore: { gte: 9 } } } });

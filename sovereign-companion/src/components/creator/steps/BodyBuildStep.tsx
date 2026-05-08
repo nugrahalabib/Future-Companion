@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useCompanionStore } from "@/stores/useCompanionStore";
 import StepShell from "./StepShell";
 import VariantCard from "./VariantCard";
+import ComingSoonHint from "./ComingSoonHint";
 import { getBodyOptions, TOTAL_CREATOR_STEPS } from "@/lib/companionAssets";
 import { useT } from "@/lib/i18n/useT";
 
@@ -14,6 +15,8 @@ export default function BodyBuildStep() {
   const { t } = useT();
 
   const options = useMemo(() => getBodyOptions(gender), [gender]);
+  const currentPick = options.find((o) => o.id === bodyBuild);
+  const isPickComingSoon = currentPick?.comingSoon === true;
 
   return (
     <StepShell
@@ -22,7 +25,7 @@ export default function BodyBuildStep() {
       title={t("creator.body.title")}
       subtitle={t("creator.body.subtitle")}
     >
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {options.map((o) => (
           <VariantCard
             key={o.id}
@@ -32,6 +35,7 @@ export default function BodyBuildStep() {
           />
         ))}
       </div>
+      {isPickComingSoon && <ComingSoonHint />}
     </StepShell>
   );
 }

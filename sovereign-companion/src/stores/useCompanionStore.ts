@@ -19,33 +19,35 @@ export interface CompanionState {
   companionName: string;
   userGender: UserGender;
   introCompleted: boolean; // marks naming contract as done
-  // Step 1 — Gender
+  // Step 1 — Gender ("female" | "male" | "nonbinary")
   gender: Gender;
-  // Step 2-4 — Physical selection (ids, not numbers)
+  // Step 2-5 — Physical selection (single-letter ids: A,B,C,D,E,F)
   faceShape: string | null;
   hairStyle: string | null;
   bodyBuild: string | null;
-  // Step 5 — Skin tone (categorical id, applied via CSS filter)
+  outfit: string | null;
+  // Step 6 — Skin tone (categorical id, applied via CSS filter)
   skinTone: string;
-  // Step 6 — Extreme biological features (spec-only, does not change image)
+  // Step 7 — Extreme biological features (spec-only, does not change image)
   features: FeaturesState;
-  // Step 7 — Persona
+  // Step 8 — Persona
   role: string;
   dominanceLevel: number;
   innocenceLevel: number;
   emotionalLevel: number;
   humorStyle: number;
-  // Step 8 — Hobbies
+  // Step 9 — Hobbies
   hobbies: string[];
-  // Derived — final composite image path (computed once all Step 1-4 set)
+  // Derived — final composite image path (computed once Step 1-5 set)
   finalImagePath: string | null;
-  // Stepper cursor (1-8)
+  // Stepper cursor (1-9)
   currentStep: number;
   // Actions
   setGender: (gender: Gender) => void;
   setFaceShape: (id: string) => void;
   setHairStyle: (id: string) => void;
   setBodyBuild: (id: string) => void;
+  setOutfit: (id: string) => void;
   setSkinTone: (id: string) => void;
   setFeature: (id: ExtremeFeatureId, enabled: boolean) => void;
   setRole: (role: string) => void;
@@ -74,6 +76,7 @@ const defaults: Pick<
   | "faceShape"
   | "hairStyle"
   | "bodyBuild"
+  | "outfit"
   | "skinTone"
   | "features"
   | "role"
@@ -93,6 +96,7 @@ const defaults: Pick<
   faceShape: null,
   hairStyle: null,
   bodyBuild: null,
+  outfit: null,
   skinTone: "medium",
   features: { ...DEFAULT_FEATURES },
   role: "romantic-partner",
@@ -105,7 +109,7 @@ const defaults: Pick<
   currentStep: 1,
 };
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 const noopStorage: Storage = {
   getItem: () => null,
@@ -123,8 +127,9 @@ function resolveFinalPath(
   faceShape: string | null,
   hairStyle: string | null,
   bodyBuild: string | null,
+  outfit: string | null,
 ): string | null {
-  return getFinalImagePath({ gender, faceShape, hairStyle, bodyBuild });
+  return getFinalImagePath({ gender, faceShape, hairStyle, bodyBuild, outfit });
 }
 
 export const useCompanionStore = create<CompanionState>()(
@@ -135,30 +140,42 @@ export const useCompanionStore = create<CompanionState>()(
       setGender: (gender) =>
         set((s) => ({
           gender,
-          // Gender change invalidates face/hair selection (options differ per gender)
+          // Gender change invalidates ALL physical selection (options differ per gender)
           faceShape: null,
           hairStyle: null,
-          // Gender-locked bio modules: only keep the one that matches the new gender
+          bodyBuild: null,
+          outfit: null,
+          // Gender-aware bio modules:
+          //  - female keeps artificialWomb, clears spermBank
+          //  - male keeps spermBank, clears artificialWomb
+          //  - nonbinary keeps BOTH (free choice — they may toggle either or both)
           features: {
-            artificialWomb: gender === "female" ? s.features.artificialWomb : false,
-            spermBank: gender === "male" ? s.features.spermBank : false,
+            artificialWomb:
+              gender === "female" || gender === "nonbinary" ? s.features.artificialWomb : false,
+            spermBank:
+              gender === "male" || gender === "nonbinary" ? s.features.spermBank : false,
           },
-          finalImagePath: resolveFinalPath(gender, null, null, s.bodyBuild),
+          finalImagePath: null,
         })),
       setFaceShape: (id) =>
         set((s) => ({
           faceShape: id,
-          finalImagePath: resolveFinalPath(s.gender, id, s.hairStyle, s.bodyBuild),
+          finalImagePath: resolveFinalPath(s.gender, id, s.hairStyle, s.bodyBuild, s.outfit),
         })),
       setHairStyle: (id) =>
         set((s) => ({
           hairStyle: id,
-          finalImagePath: resolveFinalPath(s.gender, s.faceShape, id, s.bodyBuild),
+          finalImagePath: resolveFinalPath(s.gender, s.faceShape, id, s.bodyBuild, s.outfit),
         })),
       setBodyBuild: (id) =>
         set((s) => ({
           bodyBuild: id,
-          finalImagePath: resolveFinalPath(s.gender, s.faceShape, s.hairStyle, id),
+          finalImagePath: resolveFinalPath(s.gender, s.faceShape, s.hairStyle, id, s.outfit),
+        })),
+      setOutfit: (id) =>
+        set((s) => ({
+          outfit: id,
+          finalImagePath: resolveFinalPath(s.gender, s.faceShape, s.hairStyle, s.bodyBuild, id),
         })),
       setSkinTone: (id) => set({ skinTone: id }),
       setFeature: (id, enabled) =>
@@ -175,7 +192,7 @@ export const useCompanionStore = create<CompanionState>()(
       prevStep: () => set((s) => ({ currentStep: Math.max(1, s.currentStep - 1) })),
       recomputeFinalImagePath: () =>
         set((s) => ({
-          finalImagePath: resolveFinalPath(s.gender, s.faceShape, s.hairStyle, s.bodyBuild),
+          finalImagePath: resolveFinalPath(s.gender, s.faceShape, s.hairStyle, s.bodyBuild, s.outfit),
         })),
       getFullConfig: () => {
         const s = get();
@@ -187,6 +204,7 @@ export const useCompanionStore = create<CompanionState>()(
           faceShape: s.faceShape,
           hairStyle: s.hairStyle,
           bodyBuild: s.bodyBuild,
+          outfit: s.outfit,
           skinTone: s.skinTone,
           features: s.features,
           role: s.role,
@@ -203,17 +221,18 @@ export const useCompanionStore = create<CompanionState>()(
     {
       name: "sovereign-companion",
       storage: createJSONStorage(() => storage),
-      version: 5,
+      version: 6,
       onRehydrateStorage: () => () => {
         useCompanionStore.setState({ _hasHydrated: true });
       },
-      migrate: (persisted) => {
+      migrate: (persisted, fromVersion) => {
         type LegacyShape = Partial<CompanionState> & { userNickname?: string };
         const state = persisted as LegacyShape | undefined;
         if (!state) return { ...defaults } as CompanionState;
-        const isValidFace = state.faceShape === "alpha" || state.faceShape === "beta";
-        const isValidHair = state.hairStyle === "hair1" || state.hairStyle === "hair2";
-        const isValidBody = state.bodyBuild === "body1" || state.bodyBuild === "body2";
+        // v5 → v6: asset ID system migrated from "alpha"|"beta", "hair1"|"hair2",
+        // "body1"|"body2" → "A"-"F". Legacy IDs no longer resolve, so we drop them
+        // and force re-pick. Outfit field is new; default null.
+        const isV5OrEarlier = (fromVersion ?? 0) < 6;
         // v4 → v5: userNickname (string) → userNicknames (string[])
         const legacySingle = typeof state.userNickname === "string" ? state.userNickname.trim() : "";
         const nicknames = Array.isArray(state.userNicknames)
@@ -221,6 +240,18 @@ export const useCompanionStore = create<CompanionState>()(
           : legacySingle
             ? [legacySingle]
             : [];
+        // Validate gender (now also accepts "nonbinary")
+        const validGender: Gender =
+          state.gender === "male" || state.gender === "nonbinary" ? state.gender : "female";
+        // For v5 or earlier, drop legacy face/hair/body IDs (don't match new A-F system)
+        const validFaceIds = new Set(["A", "B", "C", "D", "E"]);
+        const validHairIds = new Set(["A", "B", "C", "D", "E"]);
+        const validBodyIds = new Set(["A", "B", "C", "D", "E", "F"]);
+        const validOutfitIds = new Set(["A", "B", "C", "D", "E"]);
+        const face = !isV5OrEarlier && state.faceShape && validFaceIds.has(state.faceShape) ? state.faceShape : null;
+        const hair = !isV5OrEarlier && state.hairStyle && validHairIds.has(state.hairStyle) ? state.hairStyle : null;
+        const body = !isV5OrEarlier && state.bodyBuild && validBodyIds.has(state.bodyBuild) ? state.bodyBuild : null;
+        const outfit = !isV5OrEarlier && state.outfit && validOutfitIds.has(state.outfit) ? state.outfit : null;
         return {
           ...defaults,
           ...state,
@@ -228,9 +259,11 @@ export const useCompanionStore = create<CompanionState>()(
           companionName: state.companionName ?? "",
           userGender: state.userGender ?? "",
           introCompleted: state.introCompleted ?? false,
-          faceShape: isValidFace ? state.faceShape! : null,
-          hairStyle: isValidHair ? state.hairStyle! : null,
-          bodyBuild: isValidBody ? state.bodyBuild! : null,
+          gender: validGender,
+          faceShape: face,
+          hairStyle: hair,
+          bodyBuild: body,
+          outfit,
           finalImagePath: null,
         } as CompanionState;
       },

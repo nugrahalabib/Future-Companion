@@ -3,13 +3,8 @@
 import { motion } from "framer-motion";
 import { useCompanionStore } from "@/stores/useCompanionStore";
 import StepShell from "./StepShell";
-import { TOTAL_CREATOR_STEPS } from "@/lib/companionAssets";
+import { GENDERS, TOTAL_CREATOR_STEPS } from "@/lib/companionAssets";
 import { useT } from "@/lib/i18n/useT";
-
-const GENDERS = [
-  { id: "female" as const, labelKey: "creator.gender.female.label", descKey: "creator.gender.female.desc", glyph: "♀" },
-  { id: "male" as const, labelKey: "creator.gender.male.label", descKey: "creator.gender.male.desc", glyph: "♂" },
-];
 
 export default function GenderStep() {
   const gender = useCompanionStore((s) => s.gender);
@@ -23,9 +18,11 @@ export default function GenderStep() {
       title={t("creator.gender.title")}
       subtitle={t("creator.gender.subtitle")}
     >
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {GENDERS.map((g) => {
           const selected = gender === g.id;
+          const labelKey = g.labelKey ?? "";
+          const descKey = g.descriptionKey ?? "";
           return (
             <motion.button
               key={g.id}
@@ -51,9 +48,11 @@ export default function GenderStep() {
                   selected ? "text-cyan-accent" : "text-text-primary"
                 }`}
               >
-                {t(g.labelKey)}
+                {labelKey ? t(labelKey) : g.label}
               </div>
-              <p className="mt-1 text-sm text-text-muted leading-relaxed">{t(g.descKey)}</p>
+              <p className="mt-1 text-sm text-text-muted leading-relaxed">
+                {descKey ? t(descKey) : g.description}
+              </p>
             </motion.button>
           );
         })}

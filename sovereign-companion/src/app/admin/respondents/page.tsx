@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import GlassPanel from "@/components/ui/GlassPanel";
 import RespondentDetailDrawer from "@/components/admin/RespondentDetailDrawer";
 import {
-  FACE_LABEL, GENDER_LABEL, HAIR_LABEL, BODY_LABEL, SKIN_LABEL,
-  ROLE_LABEL, RELATIONSHIP_LABEL, STAGE_LABEL, labelize, stageColor,
+  FACE_LABEL, GENDER_LABEL, HAIR_LABEL, BODY_LABEL, OUTFIT_LABEL, SKIN_LABEL,
+  ROLE_LABEL, RELATIONSHIP_LABEL, STAGE_LABEL, labelize, labelizeAsset, stageColor,
   type LocalizedDict,
 } from "@/lib/admin/labels";
 import {
@@ -34,6 +34,7 @@ interface Row {
     faceShape: string | null;
     hairStyle: string | null;
     bodyBuild: string | null;
+    outfit: string | null;
     skinTone: string;
     finalImagePath: string | null;
     features: { artificialWomb?: boolean; spermBank?: boolean };
@@ -69,16 +70,17 @@ interface ApiResponse {
   };
 }
 
-const GENDER_OPTIONS = ["female", "male"];
+const GENDER_OPTIONS = ["female", "male", "nonbinary"];
 const ROLE_OPTIONS = [
   "romantic-partner",
   "dominant-assistant",
   "passive-listener",
   "intellectual-rival",
 ];
-const FACE_OPTIONS = ["alpha", "beta"];
-const HAIR_OPTIONS = ["hair1", "hair2"];
-const BODY_OPTIONS = ["body1", "body2"];
+const FACE_OPTIONS = ["A", "B", "C", "D", "E"];
+const HAIR_OPTIONS = ["A", "B", "C", "D", "E"];
+const BODY_OPTIONS = ["A", "B", "C", "D", "E", "F"];
+const OUTFIT_OPTIONS = ["A", "B", "C", "D", "E"];
 const SKIN_OPTIONS = ["fair", "medium", "tan", "deep"];
 
 export default function RespondentsPage() {
@@ -327,9 +329,10 @@ export default function RespondentsPage() {
                     </Td>
                     <Td>
                       <span className="text-[11px] text-text-muted">
-                        {labelize(FACE_LABEL, r.companion?.faceShape, locale)} /{" "}
-                        {labelize(HAIR_LABEL, r.companion?.hairStyle, locale)} /{" "}
-                        {labelize(BODY_LABEL, r.companion?.bodyBuild, locale)} /{" "}
+                        {labelizeAsset(r.companion?.gender, "face", r.companion?.faceShape, locale)} /{" "}
+                        {labelizeAsset(r.companion?.gender, "hair", r.companion?.hairStyle, locale)} /{" "}
+                        {labelizeAsset(r.companion?.gender, "body", r.companion?.bodyBuild, locale)} /{" "}
+                        {labelizeAsset(r.companion?.gender, "outfit", r.companion?.outfit, locale)} /{" "}
                         {labelize(SKIN_LABEL, r.companion?.skinTone, locale)}
                       </span>
                       <div className="flex gap-1 mt-1">
@@ -551,6 +554,13 @@ function FilterPanel({
         labels={flat(BODY_LABEL)}
         selected={filter.bodyBuild}
         onChange={(v) => onChange({ bodyBuild: v })}
+      />
+      <ChipGroup
+        title={t("admin.resp.filter.outfit")}
+        values={OUTFIT_OPTIONS}
+        labels={flat(OUTFIT_LABEL)}
+        selected={filter.outfit}
+        onChange={(v) => onChange({ outfit: v })}
       />
       <ChipGroup
         title={t("admin.resp.filter.skin")}

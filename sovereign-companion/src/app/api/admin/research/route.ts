@@ -1,70 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/adminAuth";
-
-// Every Likert field we surface in the Research tab. Grouped by survey section
-// so the UI can render them with the right contextual heading.
-const LIKERT_FIELDS: { key: string; label: string; section: string }[] = [
-  { key: "personaAccuracy", label: "Persona Accuracy", section: "Core Ratings" },
-  { key: "replacementWillingness", label: "Replacement Willingness", section: "Core Ratings" },
-  { key: "overallExperience", label: "Overall Experience", section: "Core Ratings" },
-  { key: "uiEaseOfUse", label: "UI Ease of Use", section: "Core Ratings" },
-  { key: "conceptFeasibility", label: "Concept Feasibility", section: "Core Ratings" },
-
-  { key: "priorAiFamiliarity", label: "Prior AI Familiarity", section: "Expectations" },
-  { key: "expectationAlignment", label: "Expectation Alignment", section: "Expectations" },
-
-  { key: "customizationDepth", label: "Customization Depth", section: "Creator Studio" },
-  { key: "stepFlowIntuitiveness", label: "Step Flow Intuitiveness", section: "Creator Studio" },
-  { key: "visualFidelity", label: "Visual Fidelity", section: "Creator Studio" },
-
-  { key: "revealImpact", label: "Reveal Impact", section: "Reveal" },
-  { key: "revealMatchedImagination", label: "Reveal Matched Imagination", section: "Reveal" },
-
-  { key: "voiceNaturalness", label: "Voice Naturalness", section: "Encounter" },
-  { key: "voiceResponsiveness", label: "Voice Responsiveness", section: "Encounter" },
-  { key: "companionPresence", label: "Companion Presence", section: "Encounter" },
-  { key: "conversationDepth", label: "Conversation Depth", section: "Encounter" },
-  { key: "preferredLongerSession", label: "Preferred Longer Session", section: "Encounter" },
-
-  { key: "ethicalConcernLevel", label: "Ethical Concern Level", section: "Ethics" },
-  { key: "impactOnHumanRelations", label: "Impact on Human Relations", section: "Ethics" },
-  { key: "socialAcceptancePrediction", label: "Social Acceptance", section: "Ethics" },
-
-  { key: "purchaseIntent", label: "Purchase Intent", section: "Market" },
-  { key: "willingnessToPayPremium", label: "Willingness to Pay Premium", section: "Market" },
-
-  { key: "emotionalConnection", label: "Emotional Connection", section: "Emotional" },
-  { key: "feltJudgedOrSafe", label: "Felt Judged or Safe", section: "Emotional" },
-  { key: "wouldMissCompanion", label: "Would Miss Companion", section: "Emotional" },
-  { key: "lonelinessAssist", label: "Loneliness Assist", section: "Emotional" },
-
-  { key: "exhibitionQuality", label: "Exhibition Quality", section: "Recommendation" },
-  { key: "willRecommend", label: "Will Recommend", section: "Recommendation" },
-];
-
-const SINGLE_CHOICE_FIELDS: { key: string; label: string }[] = [
-  { key: "discoverySource", label: "Discovery Source" },
-  { key: "customizationTimeFeel", label: "Customization Time Feel" },
-  { key: "firstImpression", label: "First Impression" },
-  { key: "expectedPriceRange", label: "Expected Price Range" },
-  { key: "preferredPricingModel", label: "Preferred Pricing Model" },
-  { key: "mostInfluentialFeature", label: "Most Influential Feature" },
-];
-
-const MULTI_CHOICE_FIELDS: { key: string; label: string }[] = [
-  { key: "revealEmotions", label: "Reveal Emotions" },
-  { key: "ethicalConcerns", label: "Ethical Concerns" },
-  { key: "primaryUseCase", label: "Primary Use Case" },
-  { key: "targetDemographic", label: "Target Demographic" },
-];
-
-const QUALITATIVE_FIELDS: { key: string; label: string }[] = [
-  { key: "additionalFeedback", label: "Additional Feedback" },
-  { key: "missingCustomization", label: "Missing Customization" },
-  { key: "biggestConcern", label: "Biggest Concern" },
-  { key: "mostMemorableMoment", label: "Most Memorable Moment" },
-  { key: "improvementSuggestion", label: "Improvement Suggestion" },
-];
+import { loadTemplate } from "@/lib/surveyTemplate";
+import { parseJsonObject } from "@/lib/companionSerialize";
 
 const POSITIVE_RE =
   /(love|suka|bagus|amazing|incredible|beautiful|great|perfect|excited|senang|impressive|fantastic|keren|mantap|hebat|indah|wow|luar biasa|menakjubkan)/i;
@@ -79,35 +16,113 @@ function sentimentOf(text: string): "positive" | "negative" | "neutral" {
   return "neutral";
 }
 
+// Pull a response value for a question. Prefers rawPayload (new dynamic
+// shape) and falls back to the legacy hardcoded column for the same key —
+// so historical data still appears in admin views even after a template
+// edit removed the question.
+function readValue(
+  qid: string,
+  rawPayload: Record<string, unknown> | null,
+  legacyRow: Record<string, unknown>,
+): unknown {
+  if (rawPayload) {
+    if (qid in rawPayload && rawPayload[qid] !== "" && rawPayload[qid] !== null && rawPayload[qid] !== undefined) {
+      return rawPayload[qid];
+    }
+    // Some legacy clients posted the responses at the top level of body which
+    // gets archived to rawPayload as well — try that too.
+  }
+  if (qid in legacyRow) return legacyRow[qid];
+  return null;
+}
+
+function parseMaybeJsonArray(v: unknown): string[] {
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
+  if (typeof v !== "string" || !v) return [];
+  try {
+    const p = JSON.parse(v);
+    if (Array.isArray(p)) return p.filter((x): x is string => typeof x === "string");
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 export async function GET(req: Request) {
   const deny = requireAdmin(req);
   if (deny) return deny;
-  const surveys = await prisma.surveyResult.findMany({
-    include: {
-      user: {
-        select: {
-          id: true,
-          fullName: true,
-          age: true,
-          relationshipStatus: true,
-          companionConfig: { select: { role: true, gender: true } },
+
+  const [template, surveys] = await Promise.all([
+    loadTemplate(),
+    prisma.surveyResult.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            age: true,
+            relationshipStatus: true,
+            companionConfig: { select: { role: true, gender: true } },
+          },
         },
       },
-    },
-  });
+    }),
+  ]);
+
+  // Pre-parse rawPayload once per survey for cheap repeated lookup.
+  const enriched = surveys.map((s) => ({
+    survey: s,
+    raw: parseJsonObject<Record<string, unknown>>(s.rawPayload) ?? null,
+    legacy: s as unknown as Record<string, unknown>,
+  }));
+
+  // Walk the template and build field arrays grouped by question type.
+  type LikertField = { key: string; label: string; section: string };
+  type ChoiceField = { key: string; label: string };
+  const likertFields: LikertField[] = [];
+  const npsFields: LikertField[] = [];
+  const singleChoiceFields: ChoiceField[] = [];
+  const multiChoiceFields: ChoiceField[] = [];
+  const qualitativeFields: ChoiceField[] = [];
+  const dropdownFields: ChoiceField[] = [];
+
+  for (const sec of template.sections) {
+    const sectionLabel = sec.titleEn || sec.id;
+    for (const q of sec.questions) {
+      switch (q.type) {
+        case "likert":
+          likertFields.push({ key: q.id, label: q.labelEn, section: sectionLabel });
+          break;
+        case "nps":
+          npsFields.push({ key: q.id, label: q.labelEn, section: sectionLabel });
+          break;
+        case "single":
+          singleChoiceFields.push({ key: q.id, label: q.labelEn });
+          break;
+        case "dropdown":
+          dropdownFields.push({ key: q.id, label: q.labelEn });
+          break;
+        case "multi":
+          multiChoiceFields.push({ key: q.id, label: q.labelEn });
+          break;
+        case "text":
+        case "longtext":
+          qualitativeFields.push({ key: q.id, label: q.labelEn });
+          break;
+      }
+    }
+  }
 
   // Likert histograms (1..5)
-  const likertHistograms = LIKERT_FIELDS.map((f) => {
-    const buckets = Array.from({ length: 5 }, (_, i) => ({
-      score: i + 1,
-      count: 0,
-    }));
+  const likertHistograms = likertFields.map((f) => {
+    const buckets = Array.from({ length: 5 }, (_, i) => ({ score: i + 1, count: 0 }));
     const values: number[] = [];
-    for (const s of surveys) {
-      const raw = (s as unknown as Record<string, unknown>)[f.key];
-      if (typeof raw === "number" && raw >= 1 && raw <= 5) {
-        buckets[raw - 1].count++;
-        values.push(raw);
+    for (const e of enriched) {
+      const raw = readValue(f.key, e.raw, e.legacy);
+      const n = typeof raw === "number" ? raw : Number(raw);
+      if (Number.isFinite(n) && n >= 1 && n <= 5) {
+        buckets[n - 1].count++;
+        values.push(n);
       }
     }
     const mean =
@@ -119,49 +134,55 @@ export async function GET(req: Request) {
         : sorted.length % 2
           ? sorted[(sorted.length - 1) / 2]
           : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
-    return {
-      ...f,
-      buckets,
-      mean,
-      median,
-      n: values.length,
-    };
+    return { ...f, buckets, mean, median, n: values.length };
   });
 
-  // Single-choice distributions
-  const singleChoice = SINGLE_CHOICE_FIELDS.map((f) => {
-    const counts = new Map<string, number>();
-    for (const s of surveys) {
-      const v = (s as unknown as Record<string, unknown>)[f.key];
-      if (typeof v === "string" && v.trim() !== "") {
-        counts.set(v, (counts.get(v) ?? 0) + 1);
+  // NPS histograms (0..10)
+  const npsHistograms = npsFields.map((f) => {
+    const buckets = Array.from({ length: 11 }, (_, i) => ({ score: i, count: 0 }));
+    const values: number[] = [];
+    for (const e of enriched) {
+      const raw = readValue(f.key, e.raw, e.legacy);
+      const n = typeof raw === "number" ? raw : Number(raw);
+      if (Number.isFinite(n) && n >= 0 && n <= 10) {
+        buckets[n].count++;
+        values.push(n);
       }
     }
-    return {
-      ...f,
-      buckets: Array.from(counts, ([label, count]) => ({ label, count })).sort(
-        (a, b) => b.count - a.count,
-      ),
-    };
+    const mean =
+      values.length > 0 ? values.reduce((a, v) => a + v, 0) / values.length : 0;
+    return { ...f, buckets, mean, n: values.length };
   });
 
-  // Multi-choice (JSON arrays stored as strings)
-  const multiChoice = MULTI_CHOICE_FIELDS.map((f) => {
-    const counts = new Map<string, number>();
-    for (const s of surveys) {
-      const raw = (s as unknown as Record<string, unknown>)[f.key];
-      if (typeof raw !== "string" || !raw) continue;
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          for (const v of parsed) {
-            if (typeof v === "string" && v.trim() !== "") {
-              counts.set(v, (counts.get(v) ?? 0) + 1);
-            }
-          }
+  // Single-choice + dropdown distributions (same shape, displayed similarly)
+  const buildChoiceDist = (fields: ChoiceField[]) =>
+    fields.map((f) => {
+      const counts = new Map<string, number>();
+      for (const e of enriched) {
+        const v = readValue(f.key, e.raw, e.legacy);
+        if (typeof v === "string" && v.trim() !== "") {
+          counts.set(v, (counts.get(v) ?? 0) + 1);
         }
-      } catch {
-        // ignore malformed row
+      }
+      return {
+        ...f,
+        buckets: Array.from(counts, ([label, count]) => ({ label, count })).sort(
+          (a, b) => b.count - a.count,
+        ),
+      };
+    });
+
+  const singleChoice = buildChoiceDist(singleChoiceFields);
+  const dropdown = buildChoiceDist(dropdownFields);
+
+  // Multi-choice
+  const multiChoice = multiChoiceFields.map((f) => {
+    const counts = new Map<string, number>();
+    for (const e of enriched) {
+      const v = readValue(f.key, e.raw, e.legacy);
+      const arr = parseMaybeJsonArray(v);
+      for (const item of arr) {
+        if (item.trim() !== "") counts.set(item, (counts.get(item) ?? 0) + 1);
       }
     }
     return {
@@ -172,8 +193,8 @@ export async function GET(req: Request) {
     };
   });
 
-  // Qualitative responses with lightweight sentiment tagging
-  const qualitative = QUALITATIVE_FIELDS.map((f) => {
+  // Qualitative
+  const qualitative = qualitativeFields.map((f) => {
     const items: {
       userId: string;
       fullName: string;
@@ -182,16 +203,16 @@ export async function GET(req: Request) {
       createdAt: string;
       role: string | null;
     }[] = [];
-    for (const s of surveys) {
-      const content = (s as unknown as Record<string, unknown>)[f.key];
+    for (const e of enriched) {
+      const content = readValue(f.key, e.raw, e.legacy);
       if (typeof content === "string" && content.trim().length > 2) {
         items.push({
-          userId: s.user.id,
-          fullName: s.user.fullName,
+          userId: e.survey.user.id,
+          fullName: e.survey.user.fullName,
           content: content.trim(),
           sentiment: sentimentOf(content),
-          createdAt: s.createdAt.toISOString(),
-          role: s.user.companionConfig?.role ?? null,
+          createdAt: e.survey.createdAt.toISOString(),
+          role: e.survey.user.companionConfig?.role ?? null,
         });
       }
     }
@@ -203,11 +224,12 @@ export async function GET(req: Request) {
     return { ...f, items, sentimentCounts };
   });
 
-  // Cross-tab: overall experience by role (average)
+  // Cross-tab: overall experience by role (uses legacy column directly — still
+  // present on every SurveyResult row).
   const experienceByRole = new Map<string, { sum: number; n: number }>();
   for (const s of surveys) {
     const role = s.user.companionConfig?.role ?? "unknown";
-    if (typeof s.overallExperience === "number") {
+    if (typeof s.overallExperience === "number" && s.overallExperience > 0) {
       const b = experienceByRole.get(role) ?? { sum: 0, n: 0 };
       b.sum += s.overallExperience;
       b.n++;
@@ -223,8 +245,10 @@ export async function GET(req: Request) {
   return Response.json({
     totalSurveys: surveys.length,
     likertHistograms,
+    npsHistograms,
     singleChoice,
     multiChoice,
+    dropdown,
     qualitative,
     experienceByRole: experienceByRoleArr,
   });

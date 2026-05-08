@@ -13,7 +13,7 @@ export default function SkinToneStep() {
 
   return (
     <StepShell
-      step={5}
+      step={6}
       total={TOTAL_CREATOR_STEPS}
       title={t("creator.skin.title")}
       subtitle={t("creator.skin.subtitle")}

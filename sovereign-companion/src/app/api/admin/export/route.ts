@@ -7,6 +7,12 @@ import {
   parseFilterFromSearchParams,
 } from "@/lib/admin/filterBuilder";
 import { requireAdmin } from "@/lib/adminAuth";
+import {
+  loadTemplate,
+  LEGACY_ARRAY_FIELDS,
+  LEGACY_NUMBER_FIELDS,
+  LEGACY_TEXT_FIELDS,
+} from "@/lib/surveyTemplate";
 
 type ExportKind = "respondents" | "survey" | "transcripts";
 
@@ -180,8 +186,10 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // CSV — reuses the same column layout as the old exporter so existing
-  // downstream tooling keeps working.
+  // CSV — preserves the legacy column layout (existing tooling depends on it)
+  // AND appends columns for any custom dynamic questions defined in the active
+  // SurveyTemplate that don't map to a legacy column. Dynamic-only responses
+  // live in SurveyResult.rawPayload and are pulled at row-build time.
   const parseArr = (raw: string | null | undefined): string[] => {
     if (!raw) return [];
     try {
@@ -191,11 +199,26 @@ export async function GET(req: NextRequest) {
       return [];
     }
   };
+  const template = await loadTemplate();
+  const allLegacyKeys = new Set<string>([
+    ...LEGACY_NUMBER_FIELDS,
+    ...LEGACY_TEXT_FIELDS,
+    ...LEGACY_ARRAY_FIELDS,
+  ]);
+  // Question ids in the active template that are NOT covered by a legacy column.
+  // These get appended as their own CSV columns (header = question id).
+  const dynamicQuestions: { id: string; isArray: boolean }[] = [];
+  for (const sec of template.sections) {
+    for (const q of sec.questions) {
+      if (allLegacyKeys.has(q.id)) continue;
+      dynamicQuestions.push({ id: q.id, isArray: q.type === "multi" });
+    }
+  }
   const rows: string[] = [];
   rows.push(
     [
       "userId", "fullName", "nickname", "email", "age", "profession", "relationshipStatus",
-      "gender", "faceShape", "hairStyle", "bodyBuild", "skinTone",
+      "gender", "faceShape", "hairStyle", "bodyBuild", "outfit", "skinTone",
       "artificialWomb", "spermBank",
       "role", "dominanceLevel", "innocenceLevel", "emotionalLevel", "humorStyle",
       "hobbies", "finalImagePath",
@@ -215,6 +238,7 @@ export async function GET(req: NextRequest) {
       "biggestConcern", "mostMemorableMoment", "improvementSuggestion",
       "npsScore", "exhibitionQuality", "willRecommend",
       "encounterDuration", "completedAt", "transcriptCount",
+      ...dynamicQuestions.map((q) => q.id),
     ].join(","),
   );
   for (const user of dataUsers) {
@@ -244,6 +268,7 @@ export async function GET(req: NextRequest) {
         csvQ(c?.faceShape ?? ""),
         csvQ(c?.hairStyle ?? ""),
         csvQ(c?.bodyBuild ?? ""),
+        csvQ(c?.outfit ?? ""),
         csvQ(c?.skinTone ?? ""),
         features.artificialWomb ? "true" : "false",
         features.spermBank ? "true" : "false",
@@ -301,6 +326,23 @@ export async function GET(req: NextRequest) {
         sess?.encounterDuration ?? "",
         sess?.completedAt?.toISOString() ?? "",
         user.transcripts.length,
+        // Dynamic question columns — pulled from rawPayload[questionId].
+        ...dynamicQuestions.map((q) => {
+          const rawPayload = parseJsonObject<Record<string, unknown>>(s?.rawPayload ?? null);
+          // tolerate older clients that nested responses under a "responses" key
+          const inner = rawPayload && typeof rawPayload.responses === "object" && rawPayload.responses
+            ? (rawPayload.responses as Record<string, unknown>)
+            : null;
+          const v = (rawPayload && q.id in rawPayload) ? rawPayload[q.id] : (inner && q.id in inner ? inner[q.id] : "");
+          if (q.isArray) {
+            const arr = Array.isArray(v)
+              ? v.map(String)
+              : (typeof v === "string" ? parseArr(v) : []);
+            return csvQ(arr.join(";"));
+          }
+          if (v === null || v === undefined || v === "") return csvQ("");
+          return csvQ(String(v));
+        }),
       ].join(","),
     );
   }

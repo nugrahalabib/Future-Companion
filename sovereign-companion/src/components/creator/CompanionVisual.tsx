@@ -10,6 +10,7 @@ import {
   getFaceOptions,
   getHairOptions,
   getBodyOptions,
+  getOutfitOptions,
   getSkinTone,
   type FeaturesState,
 } from "@/lib/companionAssets";
@@ -25,6 +26,7 @@ export default function CompanionVisual() {
   const faceShape = useCompanionStore((s) => s.faceShape);
   const hairStyle = useCompanionStore((s) => s.hairStyle);
   const bodyBuild = useCompanionStore((s) => s.bodyBuild);
+  const outfit = useCompanionStore((s) => s.outfit);
   const skinTone = useCompanionStore((s) => s.skinTone);
   const features = useCompanionStore((s) => s.features);
   const currentStep = useCompanionStore((s) => s.currentStep);
@@ -50,6 +52,10 @@ export default function CompanionVisual() {
     () => findVariant(getBodyOptions(gender), bodyBuild),
     [gender, bodyBuild],
   );
+  const outfitOption = useMemo(
+    () => findVariant(getOutfitOptions(gender), outfit),
+    [gender, outfit],
+  );
 
   // Preload the final portrait as soon as we know the full combination
   // (so Assembly reveal is instant) — but never display it here.
@@ -73,6 +79,7 @@ export default function CompanionVisual() {
     faceOption,
     hairOption,
     bodyOption,
+    outfitOption,
     skin,
     t,
     tLabel,
@@ -126,11 +133,12 @@ export default function CompanionVisual() {
       </div>
 
       {/* Compact locked-components checklist */}
-      <div className="w-full max-w-[440px] grid grid-cols-4 gap-1.5">
+      <div className="w-full max-w-[440px] grid grid-cols-5 gap-1.5">
         <LockedChip active={Boolean(gender)} label={t("visual.spec.gender")} />
-        <LockedChip active={Boolean(faceOption)} label={t("visual.spec.face")} />
-        <LockedChip active={Boolean(hairOption)} label={t("visual.spec.hair")} />
-        <LockedChip active={Boolean(bodyOption)} label={t("visual.spec.body")} />
+        <LockedChip active={Boolean(faceOption) && !faceOption?.comingSoon} label={t("visual.spec.face")} />
+        <LockedChip active={Boolean(hairOption) && !hairOption?.comingSoon} label={t("visual.spec.hair")} />
+        <LockedChip active={Boolean(bodyOption) && !bodyOption?.comingSoon} label={t("visual.spec.body")} />
+        <LockedChip active={Boolean(outfitOption) && !outfitOption?.comingSoon} label={t("visual.spec.outfit")} />
       </div>
     </div>
   );
@@ -177,6 +185,7 @@ function resolveSpotlight({
   faceOption,
   hairOption,
   bodyOption,
+  outfitOption,
   skin,
   t,
   tLabel,
@@ -190,6 +199,7 @@ function resolveSpotlight({
   faceOption: { labelKey?: string; label: string; thumbnail: string } | null;
   hairOption: { labelKey?: string; label: string; thumbnail: string } | null;
   bodyOption: { labelKey?: string; label: string; thumbnail: string } | null;
+  outfitOption: { labelKey?: string; label: string; thumbnail: string } | null;
   skin: { label: string; labelKey?: string; swatch: string };
   t: (key: string, vars?: Record<string, string | number>) => string;
   tLabel: (opt: { labelKey?: string; label: string } | null) => string;
@@ -215,7 +225,7 @@ function resolveSpotlight({
       visual: gender ? (
         <div className="flex flex-col items-center gap-4">
           <div className="font-display text-[180px] leading-none text-cyan-accent">
-            {gender === "male" ? "♂" : "♀"}
+            {gender === "male" ? "♂" : gender === "nonbinary" ? "⚧" : "♀"}
           </div>
           <div className="font-display text-sm uppercase tracking-[0.3em] text-cyan-accent/70">
             {t("visual.framework", { gender })}
@@ -272,8 +282,23 @@ function resolveSpotlight({
     };
   }
 
-  // Step 5 — Skin tone (large swatch card)
+  // Step 5 — Outfit
   if (currentStep === 5) {
+    return {
+      key: `outfit-${outfitOption?.label ?? "none"}`,
+      kicker: t("visual.preview.outfit"),
+      title: tLabel(outfitOption),
+      status: outfitOption ? lockedStatus : waitingStatus,
+      visual: outfitOption ? (
+        <BigImage src={outfitOption.thumbnail} alt={tLabel(outfitOption)} />
+      ) : (
+        <EmptyFrame label={t("visual.hint.awaiting")} />
+      ),
+    };
+  }
+
+  // Step 6 — Skin tone (large swatch card)
+  if (currentStep === 6) {
     return {
       key: `skin-${skin.label}`,
       kicker: t("visual.preview.skin"),
@@ -293,8 +318,8 @@ function resolveSpotlight({
     };
   }
 
-  // Step 6 — Biological modules
-  if (currentStep === 6) {
+  // Step 7 — Biological modules
+  if (currentStep === 7) {
     return {
       key: `features-${features.artificialWomb ? "w" : ""}${features.spermBank ? "s" : ""}`,
       kicker: t("visual.preview.features"),
@@ -334,8 +359,8 @@ function resolveSpotlight({
     };
   }
 
-  // Step 7 — Persona
-  if (currentStep === 7) {
+  // Step 8 — Persona
+  if (currentStep === 8) {
     const roleLabelMap: Record<string, string> = {
       "romantic-partner": t("creator.persona.role.romantic.label"),
       "dominant-assistant": t("creator.persona.role.dominant.label"),
@@ -359,7 +384,7 @@ function resolveSpotlight({
     };
   }
 
-  // Step 8 — Hobbies
+  // Step 9 — Hobbies
   return {
     key: `hobbies-${hobbies.length}`,
     kicker: t("visual.preview.hobbies"),

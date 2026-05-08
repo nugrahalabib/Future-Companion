@@ -207,6 +207,26 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                {/* Guardianship terms — minimal, demo-friendly. Sits between
+                    the address block and the CTA so the user reads it just
+                    before authorizing. Subtle styling (muted text, low border
+                    weight) so it doesn't compete with the primary action. */}
+                <div className="rounded-xl border border-glass-border bg-obsidian-950/40 px-3.5 py-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <span
+                      className="mt-0.5 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border border-cyan-accent/40 bg-cyan-accent/10 font-display text-[10px] text-cyan-accent"
+                      aria-hidden
+                    >
+                      ◈
+                    </span>
+                    <p className="text-[11.5px] text-text-muted leading-relaxed text-left">
+                      {companionName.trim()
+                        ? t("checkout.terms.summary", { name: companionName.trim() })
+                        : t("checkout.terms.summary.fallback")}
+                    </p>
+                  </div>
+                </div>
+
                 <GlassButton
                   className={`w-full ${geoPhase !== "confirmed" ? "opacity-50 cursor-not-allowed" : ""}`}
                   onClick={handlePayment}

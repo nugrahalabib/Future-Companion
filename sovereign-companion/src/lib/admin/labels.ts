@@ -4,29 +4,36 @@
 // students reading the dashboard never see raw codes like "body1" or "alpha".
 
 import type { Locale } from "@/stores/useLocaleStore";
+import { getAssetLabel, type AssetAxis } from "@/lib/companionAssets";
 
 export type LocalizedDict = Record<Locale, Record<string, string>>;
 
 export const GENDER_LABEL: LocalizedDict = {
-  en: { female: "Female", male: "Male" },
-  id: { female: "Perempuan", male: "Laki-Laki" },
+  en: { female: "Female", male: "Male", nonbinary: "Non-Binary" },
+  id: { female: "Perempuan", male: "Laki-Laki", nonbinary: "Non-Biner" },
 };
 
-// Face shape — matches customer-facing copy ("Dominant / Alpha" etc.).
+// Asset axis labels — IDs (A-F) are gender-aware in the new manifest, so the
+// flat dict only carries axis-generic labels for filter chips. For row-level
+// display where gender context is known, use `labelizeAsset(gender, axis, id)`.
 export const FACE_LABEL: LocalizedDict = {
-  en: { alpha: "Dominant (Alpha)", beta: "Soft (Beta)" },
-  id: { alpha: "Dominan (Alpha)", beta: "Lembut (Beta)" },
+  en: { A: "Face A", B: "Face B", C: "Face C", D: "Face D", E: "Face E" },
+  id: { A: "Wajah A", B: "Wajah B", C: "Wajah C", D: "Wajah D", E: "Wajah E" },
 };
 
-// Hair — gender-agnostic label (female + male variants share the same vibe copy).
 export const HAIR_LABEL: LocalizedDict = {
-  en: { hair1: "Short & Neat", hair2: "Long & Flowing" },
-  id: { hair1: "Pendek & Rapi", hair2: "Panjang & Tergerai" },
+  en: { A: "Hair A", B: "Hair B", C: "Hair C", D: "Hair D", E: "Hair E" },
+  id: { A: "Rambut A", B: "Rambut B", C: "Rambut C", D: "Rambut D", E: "Rambut E" },
 };
 
 export const BODY_LABEL: LocalizedDict = {
-  en: { body1: "Athletic & Broad", body2: "Slim & Elegant" },
-  id: { body1: "Atletis & Kokoh", body2: "Langsing & Anggun" },
+  en: { A: "Body A", B: "Body B", C: "Body C", D: "Body D", E: "Body E", F: "Body F" },
+  id: { A: "Tubuh A", B: "Tubuh B", C: "Tubuh C", D: "Tubuh D", E: "Tubuh E", F: "Tubuh F" },
+};
+
+export const OUTFIT_LABEL: LocalizedDict = {
+  en: { A: "Outfit A", B: "Outfit B", C: "Outfit C", D: "Outfit D", E: "Outfit E" },
+  id: { A: "Busana A", B: "Busana B", C: "Busana C", D: "Busana D", E: "Busana E" },
 };
 
 export const SKIN_LABEL: LocalizedDict = {
@@ -175,6 +182,27 @@ export function labelize(
 ): string {
   if (!key) return "—";
   return dict[locale]?.[key] ?? dict.en[key] ?? key;
+}
+
+// Gender-aware asset label resolver. Use this when rendering a row/drawer that
+// has gender context — returns the actual product name ("Heart Shaped Elegant"
+// instead of generic "Face A"). Falls back to the flat label if gender or id
+// not resolvable.
+export function labelizeAsset(
+  gender: string | null | undefined,
+  axis: AssetAxis,
+  id: string | null | undefined,
+  locale: Locale = "en",
+): string {
+  if (!id) return "—";
+  const specific = getAssetLabel(gender ?? null, axis, id);
+  if (specific) return specific;
+  const dict =
+    axis === "face" ? FACE_LABEL :
+    axis === "hair" ? HAIR_LABEL :
+    axis === "body" ? BODY_LABEL :
+    OUTFIT_LABEL;
+  return labelize(dict, id, locale);
 }
 
 export function stageColor(stage: string): string {

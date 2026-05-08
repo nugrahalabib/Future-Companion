@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import {
+  LEGACY_ARRAY_FIELDS,
+  LEGACY_NUMBER_FIELDS,
+  LEGACY_TEXT_FIELDS,
+} from "@/lib/surveyTemplate";
 
 // Coerce Likert / numeric field. Returns undefined if missing/invalid so we
 // don't overwrite a previously-set value with garbage during upsert updates.
@@ -20,88 +25,79 @@ function text(x: unknown): string | undefined {
   return x.trim() || undefined;
 }
 
+// New flexible payload shape from the dynamic questionnaire:
+//   POST { userId, responses: { [questionId]: value, ... } }
+// We also still accept legacy flat-payload shape ({ userId, personaAccuracy, ... })
+// so older clients / tests don't break.
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { userId } = body;
+  const { userId, responses } = body as {
+    userId?: string;
+    responses?: Record<string, unknown>;
+  };
 
   if (!userId) {
     return Response.json({ error: "userId is required" }, { status: 400 });
   }
 
-  // Legacy core — always required for analytics compatibility. If the expanded
-  // form omits them (shouldn't happen), fall back to 0 so upsert doesn't crash.
-  const core = {
-    personaAccuracy: num(body.personaAccuracy) ?? 0,
-    replacementWillingness: num(body.replacementWillingness) ?? 0,
-    mostInfluentialFeature: text(body.mostInfluentialFeature) ?? "",
-    overallExperience: num(body.overallExperience) ?? 0,
-    uiEaseOfUse: num(body.uiEaseOfUse) ?? 0,
-    conceptFeasibility: num(body.conceptFeasibility) ?? 0,
-    additionalFeedback: text(body.additionalFeedback) ?? null,
+  // Merge: dynamic responses override flat-shape values for the same key.
+  const merged: Record<string, unknown> = { ...body };
+  if (responses && typeof responses === "object") {
+    for (const [k, v] of Object.entries(responses)) merged[k] = v;
+  }
+
+  // Opportunistically populate legacy hardcoded columns. This keeps backward
+  // compat with the admin Insights / Drawer / Research panels that read
+  // those columns directly. Anything NOT in a legacy column lives only in
+  // rawPayload.
+  const legacyCore: Record<string, unknown> = {
+    personaAccuracy: num(merged.personaAccuracy) ?? 0,
+    replacementWillingness: num(merged.replacementWillingness) ?? 0,
+    mostInfluentialFeature: text(merged.mostInfluentialFeature) ?? "",
+    overallExperience: num(merged.overallExperience) ?? 0,
+    uiEaseOfUse: num(merged.uiEaseOfUse) ?? 0,
+    conceptFeasibility: num(merged.conceptFeasibility) ?? 0,
+    additionalFeedback: text(merged.additionalFeedback) ?? null,
   };
 
-  // Expanded research fields. All optional in the schema; only send what the
-  // client provided so partial submissions (if we ever allow them) don't wipe
-  // prior answers on an update.
-  const expanded = {
-    priorAiFamiliarity: num(body.priorAiFamiliarity),
-    expectationAlignment: num(body.expectationAlignment),
-    firstImpression: text(body.firstImpression),
-    discoverySource: text(body.discoverySource),
+  const legacyExpanded: Record<string, unknown> = {};
+  for (const key of LEGACY_NUMBER_FIELDS) {
+    if (legacyCore[key] !== undefined) continue;
+    const v = num(merged[key]);
+    if (v !== undefined) legacyExpanded[key] = v;
+  }
+  for (const key of LEGACY_TEXT_FIELDS) {
+    if (legacyCore[key] !== undefined) continue;
+    const v = text(merged[key]);
+    if (v !== undefined) legacyExpanded[key] = v;
+  }
+  for (const key of LEGACY_ARRAY_FIELDS) {
+    const v = arr(merged[key]);
+    if (v !== undefined) legacyExpanded[key] = v;
+  }
 
-    customizationDepth: num(body.customizationDepth),
-    stepFlowIntuitiveness: num(body.stepFlowIntuitiveness),
-    visualFidelity: num(body.visualFidelity),
-    customizationTimeFeel: text(body.customizationTimeFeel),
-    missingCustomization: text(body.missingCustomization),
+  // Always archive the full payload — this is the source of truth for any
+  // dynamic question that doesn't map to a legacy column.
+  legacyExpanded.rawPayload = JSON.stringify(merged);
 
-    revealImpact: num(body.revealImpact),
-    revealMatchedImagination: num(body.revealMatchedImagination),
-    revealEmotions: arr(body.revealEmotions),
-
-    voiceNaturalness: num(body.voiceNaturalness),
-    voiceResponsiveness: num(body.voiceResponsiveness),
-    companionPresence: num(body.companionPresence),
-    conversationDepth: num(body.conversationDepth),
-    preferredLongerSession: num(body.preferredLongerSession),
-
-    ethicalConcernLevel: num(body.ethicalConcernLevel),
-    ethicalConcerns: arr(body.ethicalConcerns),
-    impactOnHumanRelations: num(body.impactOnHumanRelations),
-    socialAcceptancePrediction: num(body.socialAcceptancePrediction),
-
-    purchaseIntent: num(body.purchaseIntent),
-    expectedPriceRange: text(body.expectedPriceRange),
-    preferredPricingModel: text(body.preferredPricingModel),
-    willingnessToPayPremium: num(body.willingnessToPayPremium),
-    primaryUseCase: arr(body.primaryUseCase),
-    targetDemographic: arr(body.targetDemographic),
-
-    emotionalConnection: num(body.emotionalConnection),
-    feltJudgedOrSafe: num(body.feltJudgedOrSafe),
-    wouldMissCompanion: num(body.wouldMissCompanion),
-    lonelinessAssist: num(body.lonelinessAssist),
-
-    biggestConcern: text(body.biggestConcern),
-    mostMemorableMoment: text(body.mostMemorableMoment),
-    improvementSuggestion: text(body.improvementSuggestion),
-
-    npsScore: num(body.npsScore),
-    exhibitionQuality: num(body.exhibitionQuality),
-    willRecommend: num(body.willRecommend),
-
-    rawPayload: JSON.stringify(body),
+  // Cast through Record to satisfy strict Prisma input typing — values are
+  // already coerced/sanitized above (num/text/arr helpers).
+  const createInput = {
+    userId,
+    personaAccuracy: (legacyCore.personaAccuracy as number) ?? 0,
+    replacementWillingness: (legacyCore.replacementWillingness as number) ?? 0,
+    mostInfluentialFeature: (legacyCore.mostInfluentialFeature as string) ?? "",
+    overallExperience: (legacyCore.overallExperience as number) ?? 0,
+    uiEaseOfUse: (legacyCore.uiEaseOfUse as number) ?? 0,
+    conceptFeasibility: (legacyCore.conceptFeasibility as number) ?? 0,
+    additionalFeedback: (legacyCore.additionalFeedback as string | null) ?? null,
+    ...legacyExpanded,
   };
-
-  // Strip keys whose values are undefined so Prisma doesn't try to set them.
-  const cleanExpanded = Object.fromEntries(
-    Object.entries(expanded).filter(([, v]) => v !== undefined),
-  );
-
   const result = await prisma.surveyResult.upsert({
     where: { userId },
-    create: { userId, ...core, ...cleanExpanded },
-    update: { ...core, ...cleanExpanded },
+    create: createInput,
+    update: { ...legacyCore, ...legacyExpanded },
   });
 
   // Mark session complete — only update if a Session row exists. The mobile

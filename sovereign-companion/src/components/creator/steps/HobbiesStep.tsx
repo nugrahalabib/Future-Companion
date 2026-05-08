@@ -106,7 +106,7 @@ export default function HobbiesStep() {
 
   return (
     <StepShell
-      step={8}
+      step={9}
       total={TOTAL_CREATOR_STEPS}
       title={t("creator.hobbies.title")}
       subtitle={t("creator.hobbies.subtitle")}

@@ -36,6 +36,7 @@ model CompanionConfig {
   faceShape       String?
   hairStyle       String?
   bodyBuild       String?
+  outfit          String?
   skinTone        String   @default("medium")
 
   // Stored as JSON string for SQLite compatibility
@@ -146,6 +147,30 @@ model SurveyResult {
 
   createdAt              DateTime @default(now())
   user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SuggestionTemplate {
+  id        Int      @id @default(1)
+  version   Int      @default(1)
+  schema    String   @default("{}")
+  updatedAt DateTime @updatedAt
+  updatedBy String   @default("")
+}
+
+model SystemPromptTemplate {
+  id        Int      @id @default(1)
+  version   Int      @default(1)
+  schema    String   @default("{}")
+  updatedAt DateTime @updatedAt
+  updatedBy String   @default("")
+}
+
+model SurveyTemplate {
+  id        Int      @id @default(1)
+  version   Int      @default(1)
+  schema    String   @default("{}")
+  updatedAt DateTime @updatedAt
+  updatedBy String   @default("")
 }
 
 model AppSettings {

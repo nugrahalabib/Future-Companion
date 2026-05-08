@@ -22,6 +22,7 @@ interface IncomingConfig {
   faceShape?: string | null;
   hairStyle?: string | null;
   bodyBuild?: string | null;
+  outfit?: string | null;
   skinTone?: string;
   features?: Record<string, boolean>;
   role?: string;
@@ -40,6 +41,7 @@ type ConfigFields = {
   faceShape?: string | null;
   hairStyle?: string | null;
   bodyBuild?: string | null;
+  outfit?: string | null;
   skinTone?: string;
   features?: string;
   role?: string;
@@ -59,6 +61,7 @@ function pickData(body: IncomingConfig): ConfigFields {
     faceShape,
     hairStyle,
     bodyBuild,
+    outfit,
     skinTone,
     features,
     role,
@@ -85,6 +88,7 @@ function pickData(body: IncomingConfig): ConfigFields {
     ...(faceShape !== undefined && { faceShape }),
     ...(hairStyle !== undefined && { hairStyle }),
     ...(bodyBuild !== undefined && { bodyBuild }),
+    ...(outfit !== undefined && { outfit }),
     ...(skinTone !== undefined && { skinTone }),
     ...(features !== undefined && { features: stringifyFeatures(features) }),
     ...(role !== undefined && { role }),

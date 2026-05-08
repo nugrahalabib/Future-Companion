@@ -9,7 +9,7 @@ interface SingleChoiceOption {
 }
 
 interface SingleChoiceProps {
-  question: string;
+  question?: string;
   options: SingleChoiceOption[];
   value: string;
   onChange: (value: string) => void;
@@ -36,14 +36,16 @@ export default function SingleChoice({
       }`}
       style={invalid ? { boxShadow: "0 0 14px rgba(255,90,90,0.18)" } : undefined}
     >
-      <p
-        className={`text-sm leading-relaxed flex items-start gap-2 ${
-          invalid ? "text-danger" : "text-text-primary"
-        }`}
-      >
-        {invalid && <span aria-hidden className="text-danger">●</span>}
-        <span>{question}</span>
-      </p>
+      {question && (
+        <p
+          className={`text-sm leading-relaxed flex items-start gap-2 ${
+            invalid ? "text-danger" : "text-text-primary"
+          }`}
+        >
+          {invalid && <span aria-hidden className="text-danger">●</span>}
+          <span>{question}</span>
+        </p>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {options.map((opt) => {
           const active = value === opt.value;

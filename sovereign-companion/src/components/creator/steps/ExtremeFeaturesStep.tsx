@@ -14,10 +14,19 @@ import {
 } from "@/lib/companionAssets";
 import { useT } from "@/lib/i18n/useT";
 
+// Per-feature exclusive owner (the gender that the module is biologically tied
+// to). Non-binary is intentionally NOT listed here — they get free access to
+// BOTH modules and the UI checks `gender === "nonbinary"` separately so the
+// "exclusive owner" concept is preserved for the locked-state copy on
+// female/male views.
 const OWNER: Record<ExtremeFeatureId, Gender> = {
   artificialWomb: "female",
   spermBank: "male",
 };
+
+function isFeatureAllowed(featureId: ExtremeFeatureId, gender: Gender): boolean {
+  return OWNER[featureId] === gender || gender === "nonbinary";
+}
 
 type BenefitIcon = "gestation" | "precision" | "shield" | "network" | "gamete" | "genome" | "legal" | "fraternity";
 
@@ -149,6 +158,10 @@ export default function ExtremeFeaturesStep() {
   const [expanded, setExpanded] = useState<ExtremeFeatureId | null>(null);
 
   const ordered = useMemo(() => {
+    // For nonbinary, both modules are equally available — keep the manifest
+    // order. For female/male, surface the gender-matched module first and the
+    // (locked) cross-gender module afterwards so the primary CTA is obvious.
+    if (gender === "nonbinary") return [...EXTREME_FEATURES];
     const primary = EXTREME_FEATURES.filter((f) => OWNER[f.id] === gender);
     const locked = EXTREME_FEATURES.filter((f) => OWNER[f.id] !== gender);
     return [...primary, ...locked];
@@ -156,7 +169,7 @@ export default function ExtremeFeaturesStep() {
 
   return (
     <StepShell
-      step={6}
+      step={7}
       total={TOTAL_CREATOR_STEPS}
       title={t("creator.extreme.title")}
       subtitle={t("creator.extreme.subtitle")}
@@ -168,10 +181,35 @@ export default function ExtremeFeaturesStep() {
         </span>
       </div>
 
+      {gender === "nonbinary" && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-3 flex items-start gap-3 rounded-xl border border-cyan-accent/35 bg-cyan-accent/[0.06] px-4 py-3"
+        >
+          <span
+            className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cyan-accent/60 bg-cyan-accent/10 font-display text-[11px] text-cyan-accent"
+            aria-hidden
+          >
+            ⚧
+          </span>
+          <div className="flex-1">
+            <div className="font-display text-[12px] uppercase tracking-[0.18em] text-cyan-accent">
+              {t("creator.extreme.nonbinary.title")}
+            </div>
+            <p className="mt-1 text-[13px] text-text-secondary leading-relaxed">
+              {t("creator.extreme.nonbinary.body")}
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       <div className="space-y-3">
         {ordered.map((f) => {
-          const allowed = OWNER[f.id] === gender;
+          const allowed = isFeatureAllowed(f.id, gender);
           const isOpen = expanded === f.id;
+          // Lock label only matters when the toggle is locked. Nonbinary
+          // never sees a locked card so this string is unused there.
           const lockLabel =
             OWNER[f.id] === "female"
               ? t("creator.extreme.lock.female")

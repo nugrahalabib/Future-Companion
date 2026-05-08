@@ -3,7 +3,8 @@
 import { motion } from "framer-motion";
 
 interface NPSScaleProps {
-  question: string;
+  // Optional — see LikertScale for rationale (dynamic renderer wraps the label).
+  question?: string;
   value: number | null;
   onChange: (value: number) => void;
   lowLabel: string;
@@ -38,14 +39,16 @@ export default function NPSScale({
       }`}
       style={invalid ? { boxShadow: "0 0 14px rgba(255,90,90,0.18)" } : undefined}
     >
-      <p
-        className={`text-sm leading-relaxed flex items-start gap-2 ${
-          invalid ? "text-danger" : "text-text-primary"
-        }`}
-      >
-        {invalid && <span aria-hidden className="text-danger">●</span>}
-        <span>{question}</span>
-      </p>
+      {question && (
+        <p
+          className={`text-sm leading-relaxed flex items-start gap-2 ${
+            invalid ? "text-danger" : "text-text-primary"
+          }`}
+        >
+          {invalid && <span aria-hidden className="text-danger">●</span>}
+          <span>{question}</span>
+        </p>
+      )}
       <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-between">
         {Array.from({ length: 11 }).map((_, n) => {
           const active = value === n;

@@ -1,6 +1,26 @@
 import { prisma } from "./prisma";
 import { parseFeatures, parseHobbies, type FeaturesShape } from "./companionSerialize";
 
+// Strip the gender-specific combine path prefix and clean the filename for
+// human display in admin charts. Handles both v2 paths (/assets/female/combine,
+// /assets/male/combine, /assets/non-gender/combine) and any legacy variants.
+function cleanComboLabel(rawPath: string | null | undefined): string {
+  if (!rawPath) return "unknown";
+  let s = rawPath;
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+    // ignore — already plain
+  }
+  s = s
+    .replace(/^\/assets\/[^/]+\/combine\//, "") // v2 paths (female/male/non-gender)
+    .replace(/^\/assets\/combine\//, "")          // v1 path (legacy, pre-refactor)
+    .replace(/^\/companion-assets\/final\//, "")  // v0 path (placeholder script)
+    .replace(/\.(svg|jpg|jpeg|png)$/i, "")
+    .replace(/ _ /g, " · ");                      // pretty separator
+  return s;
+}
+
 export async function getKPIs() {
   const [totalSessions, completedSessions, avgDuration, avgExperience] =
     await Promise.all([
@@ -10,8 +30,13 @@ export async function getKPIs() {
         _avg: { encounterDuration: true },
         where: { encounterDuration: { not: null } },
       }),
+      // Filter out default-0 rows. `overallExperience` is NOT NULL (Likert 1-5)
+      // so 0 means "this question wasn't answered" (e.g. admin removed it from
+      // the active SurveyTemplate). Without this filter the average drops as
+      // soon as the question is unpublished.
       prisma.surveyResult.aggregate({
         _avg: { overallExperience: true },
+        where: { overallExperience: { gt: 0 } },
       }),
     ]);
 
@@ -54,7 +79,7 @@ export async function getConversionFunnel() {
 }
 
 export async function getPreferenceHeatmap() {
-  const [configs, roleCounts, faceCounts, hairCounts, bodyCounts, skinCounts, comboRaw, avgPersona] =
+  const [configs, roleCounts, faceCounts, hairCounts, bodyCounts, outfitCounts, skinCounts, comboRaw, avgPersona] =
     await Promise.all([
       prisma.companionConfig.findMany({
         select: { hobbies: true, features: true },
@@ -63,6 +88,7 @@ export async function getPreferenceHeatmap() {
       prisma.companionConfig.groupBy({ by: ["faceShape"], _count: true }),
       prisma.companionConfig.groupBy({ by: ["hairStyle"], _count: true }),
       prisma.companionConfig.groupBy({ by: ["bodyBuild"], _count: true }),
+      prisma.companionConfig.groupBy({ by: ["outfit"], _count: true }),
       prisma.companionConfig.groupBy({ by: ["skinTone"], _count: true }),
       prisma.companionConfig.groupBy({
         by: ["finalImagePath"],
@@ -101,9 +127,8 @@ export async function getPreferenceHeatmap() {
 
   const topCombinations = comboRaw
     .map((row) => ({
-      combo: (row.finalImagePath ?? "unknown")
-        .replace(/^\/companion-assets\/final\//, "")
-        .replace(/\.(svg|jpg|png)$/, ""),
+      combo: cleanComboLabel(row.finalImagePath),
+      imagePath: row.finalImagePath ?? null,
       count: row._count,
     }))
     .sort((a, b) => b.count - a.count)
@@ -116,6 +141,7 @@ export async function getPreferenceHeatmap() {
       face: faceCounts.map((r) => ({ key: r.faceShape ?? "unset", count: r._count })),
       hair: hairCounts.map((r) => ({ key: r.hairStyle ?? "unset", count: r._count })),
       body: bodyCounts.map((r) => ({ key: r.bodyBuild ?? "unset", count: r._count })),
+      outfit: outfitCounts.map((r) => ({ key: r.outfit ?? "unset", count: r._count })),
       skinTone: skinCounts.map((r) => ({ key: r.skinTone, count: r._count })),
     },
     topCombinations,
@@ -211,7 +237,7 @@ export async function getExportData(format: "json" | "csv") {
       // Identity
       "userId", "fullName", "nickname", "email", "age", "profession", "relationshipStatus",
       // Companion config
-      "gender", "faceShape", "hairStyle", "bodyBuild", "skinTone",
+      "gender", "faceShape", "hairStyle", "bodyBuild", "outfit", "skinTone",
       "artificialWomb", "spermBank",
       "role", "dominanceLevel", "innocenceLevel", "emotionalLevel", "humorStyle",
       "hobbies", "finalImagePath",
@@ -262,6 +288,7 @@ export async function getExportData(format: "json" | "csv") {
         q(c?.faceShape ?? ""),
         q(c?.hairStyle ?? ""),
         q(c?.bodyBuild ?? ""),
+        q(c?.outfit ?? ""),
         q(c?.skinTone ?? ""),
         features.artificialWomb ? "true" : "false",
         features.spermBank ? "true" : "false",

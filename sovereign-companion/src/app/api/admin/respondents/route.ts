@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
             faceShape: true,
             hairStyle: true,
             bodyBuild: true,
+            outfit: true,
             skinTone: true,
             features: true,
             hobbies: true,
@@ -81,6 +82,15 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
+  // Likert columns are NOT NULL with `0` as the create-time default, which
+  // means the value 0 is unambiguously "not answered" (Likert valid range is
+  // 1-5). Surface that as null so the table renders "—" instead of misleading
+  // "0/5".
+  function nullIfZero(v: number | null | undefined): number | null {
+    if (typeof v !== "number") return null;
+    return v > 0 ? v : null;
+  }
+
   // Furthest stage reached helps the table show progress at a glance
   const stageOf = (s: (typeof users)[number]["session"]): string => {
     if (!s) return "Registered";
@@ -115,6 +125,7 @@ export async function GET(req: NextRequest) {
             faceShape: c.faceShape,
             hairStyle: c.hairStyle,
             bodyBuild: c.bodyBuild,
+            outfit: c.outfit,
             skinTone: c.skinTone,
             finalImagePath: c.finalImagePath,
             features,
@@ -133,9 +144,12 @@ export async function GET(req: NextRequest) {
       encounterDuration: u.session?.encounterDuration ?? null,
       surveyedAt: u.session?.surveyAt?.toISOString() ?? null,
       completedAt: u.session?.completedAt?.toISOString() ?? null,
-      experience: u.surveyResult?.overallExperience ?? null,
+      // Convert default-0 to null so the table renders "—" instead of "0/5".
+      // Likert columns are NOT NULL with 0 as the create-time default, so the
+      // value 0 is unambiguously "not answered" (Likert range is 1-5).
+      experience: nullIfZero(u.surveyResult?.overallExperience),
       nps: u.surveyResult?.npsScore ?? null,
-      purchaseIntent: u.surveyResult?.purchaseIntent ?? null,
+      purchaseIntent: nullIfZero(u.surveyResult?.purchaseIntent),
       personaAccuracy: u.surveyResult?.personaAccuracy ?? null,
       transcriptCount: u._count.transcripts,
     };

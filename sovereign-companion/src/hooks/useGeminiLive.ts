@@ -35,6 +35,11 @@ interface UseGeminiLiveOptions {
   systemPrompt: string;
   voiceName: string;
   languageCode: string;
+  // Optional companion config + locale — when provided, the server rebuilds
+  // the system prompt with admin overrides applied (hot-reload). The client
+  // STILL builds its own `systemPrompt` for legacy/fallback paths.
+  companionConfigForRebuild?: Record<string, unknown>;
+  rebuildLocale?: "en" | "id";
   model?: GeminiLiveModel;
   // When true, uses native-audio features (affectiveDialog, proactivity).
   // Only works on native-audio models + v1alpha endpoint.
@@ -105,6 +110,11 @@ async function fetchEphemeralToken(payload: {
   systemPrompt?: string;
   voiceName?: string;
   languageCode?: string;
+  // Optional: server-side rebuild payload. When provided, the server pulls
+  // the active admin overrides and rebuilds the prompt with them — guarantees
+  // hot-reload of /admin/prompt edits without a client refresh.
+  companionConfigForRebuild?: Record<string, unknown>;
+  rebuildLocale?: "en" | "id";
 }): Promise<{ token: string } | { error: string }> {
   try {
     const res = await fetch("/api/gemini-token", {
@@ -130,6 +140,8 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
     systemPrompt,
     voiceName,
     languageCode,
+    companionConfigForRebuild,
+    rebuildLocale,
     model = "gemini-2.5-flash-native-audio-preview-12-2025",
     enableAffectiveFeatures = true,
     functionDeclarations,
@@ -341,6 +353,8 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
         systemPrompt,
         voiceName,
         languageCode,
+        companionConfigForRebuild,
+        rebuildLocale,
       });
       if ("error" in ephemeralResult) {
         handlersRef.current.onError?.(ephemeralResult.error);

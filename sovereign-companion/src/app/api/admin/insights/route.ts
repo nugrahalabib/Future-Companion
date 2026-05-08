@@ -33,7 +33,7 @@ export async function GET(req: Request) {
   const roleDistribution = Array.from(roleMap, ([role, count]) => ({ role, count }));
 
   // Physical distribution
-  const dist = (key: "faceShape" | "hairStyle" | "bodyBuild" | "skinTone") => {
+  const dist = (key: "faceShape" | "hairStyle" | "bodyBuild" | "outfit" | "skinTone") => {
     const m = new Map<string, number>();
     for (const c of configs) {
       const v = c[key] ?? "unset";
@@ -108,14 +108,28 @@ export async function GET(req: Request) {
     spermBank: configs.length ? (sperm / configs.length) * 100 : 0,
   };
 
-  // Top combinations
+  // Top combinations — strip 3-gender path prefix + URL-decode + prettify separator
   const comboMap = new Map<string, number>();
   for (const c of configs) {
     if (!c.finalImagePath) continue;
     comboMap.set(c.finalImagePath, (comboMap.get(c.finalImagePath) ?? 0) + 1);
   }
+  const cleanCombo = (raw: string): string => {
+    let s = raw;
+    try {
+      s = decodeURIComponent(s);
+    } catch {
+      // ignore
+    }
+    return s
+      .replace(/^\/assets\/[^/]+\/combine\//, "")
+      .replace(/^\/assets\/combine\//, "")
+      .replace(/^\/companion-assets\/final\//, "")
+      .replace(/\.(png|jpg|jpeg|svg)$/i, "")
+      .replace(/ _ /g, " · ");
+  };
   const topCombinations = Array.from(comboMap, ([path, count]) => ({
-    combo: path.replace(/^\/assets\/combine\//, "").replace(/\.(png|jpg|svg)$/i, ""),
+    combo: cleanCombo(path),
     imagePath: path,
     count,
   }))
@@ -190,6 +204,7 @@ export async function GET(req: Request) {
       face: dist("faceShape"),
       hair: dist("hairStyle"),
       body: dist("bodyBuild"),
+      outfit: dist("outfit"),
       skinTone: dist("skinTone"),
     },
     hobbyPopularity,

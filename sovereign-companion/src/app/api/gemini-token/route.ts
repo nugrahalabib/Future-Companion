@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { getDemoStatus } from "@/lib/demoMode";
 import { prisma } from "@/lib/prisma";
+import { buildSystemPrompt, type CompanionConfig } from "@/lib/systemPromptBuilder";
+import { loadOverrides } from "@/lib/systemPromptOverrides";
 
 // Per-IP token-bucket rate limit. Ephemeral tokens are single-use and short-
 // lived, but the mint call still counts toward Gemini quota and each minted
@@ -82,6 +84,12 @@ export async function POST(req: NextRequest) {
   let voiceName = "Kore";
   let languageCode: string | undefined;
   let userId: string | undefined;
+  // New: optional rebuild payload. When present, server rebuilds the prompt
+  // from companion config + admin overrides — guarantees hot-reload of any
+  // /admin/prompt edit without redeploy. If absent, falls back to client-
+  // supplied `systemPrompt` (legacy path, NO overrides applied).
+  let rebuildConfig: CompanionConfig | undefined;
+  let rebuildLocale: "id" | "en" = "id";
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -90,6 +98,12 @@ export async function POST(req: NextRequest) {
     if (typeof body?.systemPrompt === "string") systemPrompt = body.systemPrompt;
     if (typeof body?.voiceName === "string" && body.voiceName) voiceName = body.voiceName;
     if (typeof body?.languageCode === "string" && body.languageCode) languageCode = body.languageCode;
+    if (body?.companionConfigForRebuild && typeof body.companionConfigForRebuild === "object") {
+      rebuildConfig = body.companionConfigForRebuild as CompanionConfig;
+    }
+    if (body?.rebuildLocale === "en" || body?.rebuildLocale === "id") {
+      rebuildLocale = body.rebuildLocale;
+    }
   } catch {}
 
   if (!userId) {
@@ -114,6 +128,19 @@ export async function POST(req: NextRequest) {
       { error: "companion_not_ready", message: "Complete the creator flow first." },
       { status: 403 },
     );
+  }
+
+  // Apply admin prompt overrides (hot-reload — no caching). When the client
+  // sends `companionConfigForRebuild`, we rebuild the entire prompt server-side
+  // so any /admin/prompt edit takes effect on the very next mint. Otherwise we
+  // pass the client-built prompt through unchanged (legacy path).
+  if (rebuildConfig) {
+    try {
+      const overrides = await loadOverrides();
+      systemPrompt = buildSystemPrompt(rebuildConfig, rebuildLocale, overrides);
+    } catch (err) {
+      console.warn("[gemini-token] override load/build failed, using client prompt:", err);
+    }
   }
 
   try {

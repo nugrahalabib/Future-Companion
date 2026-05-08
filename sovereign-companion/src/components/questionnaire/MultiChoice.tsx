@@ -8,7 +8,7 @@ interface MultiChoiceOption {
 }
 
 interface MultiChoiceProps {
-  question: string;
+  question?: string;
   helper?: string;
   options: MultiChoiceOption[];
   value: string[];
@@ -49,14 +49,16 @@ export default function MultiChoice({
       }`}
       style={invalid ? { boxShadow: "0 0 14px rgba(255,90,90,0.18)" } : undefined}
     >
-      <p
-        className={`text-sm leading-relaxed flex items-start gap-2 ${
-          invalid ? "text-danger" : "text-text-primary"
-        }`}
-      >
-        {invalid && <span aria-hidden className="text-danger">●</span>}
-        <span>{question}</span>
-      </p>
+      {question && (
+        <p
+          className={`text-sm leading-relaxed flex items-start gap-2 ${
+            invalid ? "text-danger" : "text-text-primary"
+          }`}
+        >
+          {invalid && <span aria-hidden className="text-danger">●</span>}
+          <span>{question}</span>
+        </p>
+      )}
       {helper && (
         <p className="text-[11px] text-text-muted font-display uppercase tracking-widest">
           {helper}

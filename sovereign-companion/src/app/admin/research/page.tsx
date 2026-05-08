@@ -45,8 +45,10 @@ interface QualitativeItem {
 interface ResearchData {
   totalSurveys: number;
   likertHistograms: LikertItem[];
+  npsHistograms?: LikertItem[];
   singleChoice: ChoiceItem[];
   multiChoice: ChoiceItem[];
+  dropdown?: ChoiceItem[];
   qualitative: QualitativeItem[];
   experienceByRole: { role: string; avg: number; n: number }[];
 }

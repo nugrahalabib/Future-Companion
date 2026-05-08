@@ -12,7 +12,7 @@ import {
   AXIS_STROKE, GRID_STROKE,
 } from "@/lib/admin/chartTheme";
 import {
-  FACE_LABEL, HAIR_LABEL, BODY_LABEL, SKIN_LABEL,
+  FACE_LABEL, HAIR_LABEL, BODY_LABEL, OUTFIT_LABEL, SKIN_LABEL,
   ROLE_LABEL, HOBBY_LABEL, GENDER_LABEL, labelize,
 } from "@/lib/admin/labels";
 import { useT } from "@/lib/i18n/useT";
@@ -41,6 +41,7 @@ interface InsightsData {
     face: { key: string; count: number }[];
     hair: { key: string; count: number }[];
     body: { key: string; count: number }[];
+    outfit: { key: string; count: number }[];
     skinTone: { key: string; count: number }[];
   };
   hobbyPopularity: { hobby: string; count: number }[];
@@ -235,7 +236,7 @@ export default function InsightsPage() {
         <p className="text-[11px] text-text-muted mb-3">
           {t("admin.insights.physical.subtitle")}
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
           <DistributionChart
             title={t("admin.insights.physical.face")}
             data={data.physicalDistribution.face.map((d) => ({ key: labelize(FACE_LABEL, d.key, locale), count: d.count }))}
@@ -250,6 +251,11 @@ export default function InsightsPage() {
             title={t("admin.insights.physical.body")}
             data={data.physicalDistribution.body.map((d) => ({ key: labelize(BODY_LABEL, d.key, locale), count: d.count }))}
             color={ADMIN_COLORS[3]}
+          />
+          <DistributionChart
+            title={t("admin.insights.physical.outfit")}
+            data={data.physicalDistribution.outfit.map((d) => ({ key: labelize(OUTFIT_LABEL, d.key, locale), count: d.count }))}
+            color={ADMIN_COLORS[4]}
           />
           <DistributionChart
             title={t("admin.insights.physical.skin")}

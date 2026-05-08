@@ -11,6 +11,7 @@ import GenderStep from "@/components/creator/steps/GenderStep";
 import FaceShapeStep from "@/components/creator/steps/FaceShapeStep";
 import HairStyleStep from "@/components/creator/steps/HairStyleStep";
 import BodyBuildStep from "@/components/creator/steps/BodyBuildStep";
+import OutfitStep from "@/components/creator/steps/OutfitStep";
 import SkinToneStep from "@/components/creator/steps/SkinToneStep";
 import ExtremeFeaturesStep from "@/components/creator/steps/ExtremeFeaturesStep";
 import PersonaStep from "@/components/creator/steps/PersonaStep";
@@ -18,7 +19,7 @@ import HobbiesStep from "@/components/creator/steps/HobbiesStep";
 import { useCompanionStore } from "@/stores/useCompanionStore";
 import { useUserStore } from "@/stores/useUserStore";
 import { useSessionStore } from "@/stores/useSessionStore";
-import { CREATOR_STEPS, TOTAL_CREATOR_STEPS } from "@/lib/companionAssets";
+import { CREATOR_STEPS, TOTAL_CREATOR_STEPS, isPickAvailable } from "@/lib/companionAssets";
 import { useT } from "@/lib/i18n/useT";
 import { useHydrated } from "@/lib/useHydrated";
 
@@ -27,10 +28,11 @@ const STEP_COMPONENTS: Record<number, () => React.ReactElement> = {
   2: FaceShapeStep,
   3: HairStyleStep,
   4: BodyBuildStep,
-  5: SkinToneStep,
-  6: ExtremeFeaturesStep,
-  7: PersonaStep,
-  8: HobbiesStep,
+  5: OutfitStep,
+  6: SkinToneStep,
+  7: ExtremeFeaturesStep,
+  8: PersonaStep,
+  9: HobbiesStep,
 };
 
 export default function CreatorPage() {
@@ -214,16 +216,18 @@ function useCanProceed(step: number) {
       case 1:
         return Boolean(s.gender);
       case 2:
-        return Boolean(s.faceShape);
+        return isPickAvailable(s.gender, "face", s.faceShape);
       case 3:
-        return Boolean(s.hairStyle);
+        return isPickAvailable(s.gender, "hair", s.hairStyle);
       case 4:
-        return Boolean(s.bodyBuild);
+        return isPickAvailable(s.gender, "body", s.bodyBuild);
       case 5:
-        return Boolean(s.skinTone);
+        return isPickAvailable(s.gender, "outfit", s.outfit);
       case 6:
+        return Boolean(s.skinTone);
       case 7:
       case 8:
+      case 9:
         return true;
       default:
         return false;

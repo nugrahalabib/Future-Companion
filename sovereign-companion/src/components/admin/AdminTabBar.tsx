@@ -12,6 +12,9 @@ const TABS = [
   { href: "/admin/insights", key: "insights", tKey: "admin.tab.insights" },
   { href: "/admin/research", key: "research", tKey: "admin.tab.research" },
   { href: "/admin/export", key: "export", tKey: "admin.tab.export" },
+  { href: "/admin/forms", key: "forms", tKey: "admin.tab.forms" },
+  { href: "/admin/prompt", key: "prompt", tKey: "admin.tab.prompt" },
+  { href: "/admin/suggestions", key: "suggestions", tKey: "admin.tab.suggestions" },
   { href: "/admin/settings", key: "settings", tKey: "admin.tab.settings" },
 ] as const;
 

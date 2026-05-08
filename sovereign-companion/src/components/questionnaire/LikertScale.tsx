@@ -4,8 +4,10 @@ import { motion } from "framer-motion";
 import { useT } from "@/lib/i18n/useT";
 
 interface LikertScaleProps {
-  question: string;
-  questionId: string;
+  // Optional — when omitted, the component renders without an internal heading
+  // (used by the dynamic survey renderer which provides its own outer label).
+  question?: string;
+  questionId?: string;
   value: number;
   onChange: (value: number) => void;
   // Optional custom anchor labels. When ANY is provided, the per-circle
@@ -45,14 +47,16 @@ export default function LikertScale({
       }`}
       style={invalid ? { boxShadow: "0 0 14px rgba(255,90,90,0.18)" } : undefined}
     >
-      <p
-        className={`text-sm leading-relaxed flex items-start gap-2 ${
-          invalid ? "text-danger" : "text-text-primary"
-        }`}
-      >
-        {invalid && <span aria-hidden className="text-danger">●</span>}
-        <span>{question}</span>
-      </p>
+      {question && (
+        <p
+          className={`text-sm leading-relaxed flex items-start gap-2 ${
+            invalid ? "text-danger" : "text-text-primary"
+          }`}
+        >
+          {invalid && <span aria-hidden className="text-danger">●</span>}
+          <span>{question}</span>
+        </p>
+      )}
       <div className="flex items-center justify-between w-full">
         {[1, 2, 3, 4, 5].map((n) => (
           <button

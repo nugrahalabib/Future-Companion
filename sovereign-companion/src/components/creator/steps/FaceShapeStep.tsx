@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import { useCompanionStore } from "@/stores/useCompanionStore";
 import StepShell from "./StepShell";
 import VariantCard from "./VariantCard";
+import ComingSoonHint from "./ComingSoonHint";
 import { TOTAL_CREATOR_STEPS, getFaceOptions } from "@/lib/companionAssets";
 import { useT } from "@/lib/i18n/useT";
 
@@ -10,7 +12,9 @@ export default function FaceShapeStep() {
   const gender = useCompanionStore((s) => s.gender);
   const faceShape = useCompanionStore((s) => s.faceShape);
   const setFaceShape = useCompanionStore((s) => s.setFaceShape);
-  const options = getFaceOptions(gender);
+  const options = useMemo(() => getFaceOptions(gender), [gender]);
+  const currentPick = options.find((o) => o.id === faceShape);
+  const isPickComingSoon = currentPick?.comingSoon === true;
   const { t } = useT();
 
   return (
@@ -20,7 +24,7 @@ export default function FaceShapeStep() {
       title={t("creator.face.title")}
       subtitle={t("creator.face.subtitle")}
     >
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {options.map((o) => (
           <VariantCard
             key={o.id}
@@ -30,6 +34,7 @@ export default function FaceShapeStep() {
           />
         ))}
       </div>
+      {isPickComingSoon && <ComingSoonHint />}
     </StepShell>
   );
 }

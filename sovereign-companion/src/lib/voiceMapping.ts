@@ -1,6 +1,6 @@
 import type { Locale } from "@/stores/useLocaleStore";
 
-export type Gender = "female" | "male";
+export type Gender = "female" | "male" | "nonbinary";
 
 // Role ids match useCompanionStore.role values
 export type RoleId =
@@ -27,18 +27,33 @@ export const VOICE_MAP: Record<Gender, Record<RoleId, string>> = {
     "passive-listener":    "Umbriel",   // Easy-going, relaxed — patient
     "intellectual-rival":  "Charon",    // Informative, measured — cerebral
   },
+  // Non-binary roster — voices chosen for timbre that doesn't strongly index
+  // a single gender. Aoede (warm/neutral), Iapetus (bright/clear), Despina
+  // (soft/centered), Gacrux (cerebral/measured).
+  nonbinary: {
+    "romantic-partner":    "Aoede",     // Warm, neutral — present and intimate
+    "dominant-assistant":  "Iapetus",   // Bright, decisive — confident neutral
+    "passive-listener":    "Despina",   // Soft, centered — reflective listener
+    "intellectual-rival":  "Gacrux",    // Cerebral, measured — sharp neutral
+  },
 };
 
 const FALLBACK_VOICE_FEMALE = "Aoede";
 const FALLBACK_VOICE_MALE = "Charon";
+const FALLBACK_VOICE_NONBINARY = "Aoede";
+
+function normalizeGender(g: string | null): Gender {
+  if (g === "male" || g === "nonbinary") return g;
+  return "female";
+}
 
 export function pickVoice(gender: string | null, role: string | null): string {
-  const g: Gender = gender === "male" ? "male" : "female";
+  const g = normalizeGender(gender);
   const roleMap = VOICE_MAP[g];
   if (role && role in roleMap) {
     return roleMap[role as RoleId];
   }
-  return g === "male" ? FALLBACK_VOICE_MALE : FALLBACK_VOICE_FEMALE;
+  return g === "male" ? FALLBACK_VOICE_MALE : g === "nonbinary" ? FALLBACK_VOICE_NONBINARY : FALLBACK_VOICE_FEMALE;
 }
 
 // Locale → BCP-47 language code used by Gemini speech synthesis
@@ -49,8 +64,11 @@ export function pickLanguage(locale: Locale | undefined): string {
 // Lightweight archetype descriptor pushed into the system prompt so the model
 // matches verbal mannerisms to the voice timbre selected above.
 export function describeVoiceArchetype(gender: string | null, role: string | null): string {
-  const g: Gender = gender === "male" ? "male" : "female";
-  const pronoun = g === "male" ? "a male" : "a female";
+  const g = normalizeGender(gender);
+  const pronoun =
+    g === "male" ? "a male" :
+    g === "nonbinary" ? "an androgynous, gender-neutral" :
+    "a female";
   const roleDescriptors: Record<RoleId, string> = {
     "romantic-partner":
       "warm, tender, emotionally present; lingers on soft consonants; speaks as if close in a private space",
