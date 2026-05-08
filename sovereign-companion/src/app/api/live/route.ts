@@ -48,6 +48,14 @@ import { getDemoStatus } from "@/lib/demoMode";
 
 export const runtime = "nodejs";
 
+// Next.js requires HTTP method exports for a route file to be considered
+// valid; without these it logs `No HTTP methods exported` and refuses to
+// register the route (taking UPGRADE down with it). A 426 Upgrade Required
+// is the polite reply for non-WebSocket hits.
+export function GET() {
+  return new Response("Upgrade Required — connect via WebSocket", { status: 426 });
+}
+
 interface StartMessage {
   type: "start";
   userId: string;
@@ -107,8 +115,9 @@ export async function UPGRADE(
   // userId + companion config to build the system prompt.
   client.once("message", async (raw: unknown) => {
     let parsed: StartMessage;
+    let rawText = "";
     try {
-      const text =
+      rawText =
         typeof raw === "string"
           ? raw
           : Buffer.isBuffer(raw)
@@ -116,19 +125,28 @@ export async function UPGRADE(
             : raw instanceof ArrayBuffer
               ? Buffer.from(raw).toString("utf8")
               : "";
-      parsed = JSON.parse(text) as StartMessage;
+      parsed = JSON.parse(rawText) as StartMessage;
     } catch {
+      const preview =
+        rawText.length > 0
+          ? rawText.slice(0, 80)
+          : Buffer.isBuffer(raw)
+            ? `<binary ${raw.length}B>`
+            : `<${typeof raw}>`;
+      console.warn("[live] invalid first message:", preview);
       safeSend(client, { type: "error", message: "first message must be JSON {type:'start',...}" });
       client.close(1003);
       return;
     }
-    if (parsed.type !== "start" || !parsed.userId || !parsed.companionConfig) {
-      safeSend(client, { type: "error", message: "missing userId or companionConfig" });
+    if (parsed.type !== "start" || !parsed.userId) {
+      safeSend(client, { type: "error", message: "missing userId in start payload" });
       client.close(1003);
       return;
     }
 
-    // Verify caller has completed creator flow.
+    // Verify caller has completed creator flow. We use the DB record as the
+    // SOURCE OF TRUTH for the companion config — the client may pass a
+    // partial / stale snapshot, so we always merge over the saved record.
     const user = await prisma.user.findUnique({
       where: { id: parsed.userId },
       include: { companionConfig: true },
@@ -139,6 +157,34 @@ export async function UPGRADE(
       return;
     }
 
+    // Reconstruct the companion config from the DB record. Prefer the
+    // client snapshot for fields it does provide (e.g. fresh sliders that
+    // haven't been auto-saved yet), but fall back to DB for everything
+    // else. fullConfig is the canonical JSON blob saved by /api/companion-
+    // config — it has every CompanionConfig field.
+    let dbConfig: CompanionConfig = {
+      gender: user.companionConfig.gender || "female",
+      role: user.companionConfig.role || "romantic-partner",
+      dominanceLevel: user.companionConfig.dominanceLevel ?? 50,
+      innocenceLevel: user.companionConfig.innocenceLevel ?? 50,
+      emotionalLevel: user.companionConfig.emotionalLevel ?? 50,
+      humorStyle: user.companionConfig.humorStyle ?? 50,
+      hobbies: [],
+    };
+    try {
+      if (user.companionConfig.fullConfig) {
+        const parsed_full = JSON.parse(user.companionConfig.fullConfig) as Partial<CompanionConfig>;
+        dbConfig = { ...dbConfig, ...parsed_full };
+      }
+    } catch {
+      // ignore — fall back to flat columns above
+    }
+    // Merge client-supplied snapshot on top of DB.
+    const finalConfig: CompanionConfig = {
+      ...dbConfig,
+      ...((parsed.companionConfig as Partial<CompanionConfig> | undefined) ?? {}),
+    };
+
     // Build the live system prompt with admin overrides + Tuya device list.
     const locale = parsed.locale === "en" ? "en" : "id";
     let systemPrompt = "";
@@ -146,7 +192,7 @@ export async function UPGRADE(
       const overrides = await loadOverrides();
       const deviceNames = await listDeviceNamesForAi();
       const deviceList = deviceNames.length ? deviceNames.map((n) => `- ${n}`).join("\n") : "";
-      systemPrompt = buildSystemPrompt(parsed.companionConfig, locale, overrides, { deviceList });
+      systemPrompt = buildSystemPrompt(finalConfig, locale, overrides, { deviceList });
     } catch (err) {
       console.warn("[live] prompt build failed:", err);
     }

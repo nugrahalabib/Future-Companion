@@ -83,6 +83,14 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
 
   const [phase, setPhase] = useState<ConnectionPhase>("idle");
   const wsRef = useRef<WebSocket | null>(null);
+  // Buffer audio frames until the server has acknowledged `ready`. If the
+  // recorder fires faster than the start handshake completes, those bytes
+  // would otherwise leak into the channel as the first frame and the
+  // server would (correctly) reject them as invalid JSON. After ready, the
+  // buffer is drained in order and never used again.
+  const audioBufferRef = useRef<Uint8Array[]>([]);
+  const startSentRef = useRef<boolean>(false);
+  const readyRef = useRef<boolean>(false);
   const shouldReconnectRef = useRef<boolean>(false);
   const reconnectAttemptsRef = useRef<number>(0);
   const connectedOnceRef = useRef<boolean>(false);
@@ -134,7 +142,11 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
         companionConfig: companionConfigForRebuild as CompanionConfig | undefined,
       };
       try {
+        // Send start as the FIRST frame. After this, audio frames may be
+        // sent. Mark the flag synchronously so any sendAudio call fired in
+        // the same tick can drain the buffer in order.
         ws.send(JSON.stringify(startPayload));
+        startSentRef.current = true;
       } catch (err) {
         console.warn("[live] start send failed:", err);
       }
@@ -163,6 +175,20 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
           console.debug("[live] upstream ready");
           connectedOnceRef.current = true;
           reconnectAttemptsRef.current = 0;
+          readyRef.current = true;
+          // Drain any audio buffered while we were handshaking.
+          if (audioBufferRef.current.length > 0) {
+            console.debug("[live] draining", audioBufferRef.current.length, "buffered audio frames");
+            const ws2 = wsRef.current;
+            if (ws2 && ws2.readyState === WebSocket.OPEN) {
+              for (const bytes of audioBufferRef.current) {
+                try {
+                  ws2.send(bytes);
+                } catch {}
+              }
+            }
+            audioBufferRef.current = [];
+          }
           setPhaseSafe("connected");
           break;
         case "input_transcript":
@@ -211,6 +237,9 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
 
     ws.onclose = (ev) => {
       wsRef.current = null;
+      startSentRef.current = false;
+      readyRef.current = false;
+      audioBufferRef.current = [];
       const userInitiated = !shouldReconnectRef.current;
       const isAbnormal = !userInitiated && ev.code !== 1000;
       const everConnected = connectedOnceRef.current;
@@ -269,13 +298,34 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
   }, [openSocket]);
 
   const sendAudio = useCallback((base64PcmChunk: string) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    // Decode base64 → bytes once. We may either send immediately or
+    // buffer until the upstream is ready.
+    let bytes: Uint8Array;
     try {
-      // Decode base64 → bytes → send as binary frame.
       const binaryStr = atob(base64PcmChunk);
-      const bytes = new Uint8Array(binaryStr.length);
+      bytes = new Uint8Array(binaryStr.length);
       for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+    } catch {
+      return;
+    }
+    const ws = wsRef.current;
+    // Buffer if either: socket not open yet, OR start hasn't been sent
+    // yet, OR upstream `ready` hasn't been received. The drain happens
+    // inside the `ready` event handler.
+    if (
+      !ws ||
+      ws.readyState !== WebSocket.OPEN ||
+      !startSentRef.current ||
+      !readyRef.current
+    ) {
+      // Cap buffer at ~5s of 16kHz 16-bit audio (~160KB) so a stuck
+      // handshake doesn't blow out memory.
+      if (audioBufferRef.current.length < 200) {
+        audioBufferRef.current.push(bytes);
+      }
+      return;
+    }
+    try {
       ws.send(bytes);
     } catch (err) {
       console.warn("[live] sendAudio failed:", err);
