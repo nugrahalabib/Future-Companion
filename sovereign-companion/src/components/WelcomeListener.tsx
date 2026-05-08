@@ -9,9 +9,9 @@ import { usePathname, useRouter } from "next/navigation";
  * half-finished registration / creator / encounter / checkout state.
  *
  * Excluded from the reset:
- *   - /admin/*    (operator workspaces)
- *   - /survey/*   (active questionnaire — must not lose responses)
- *   - /welcome    (the trigger surface itself)
+ *   - /admin/*          (operator workspaces)
+ *   - /questionnaire/*  (active questionnaire — must not lose responses)
+ *   - /welcome          (the trigger surface itself)
  *
  * Mounted once at the root layout. Maintains a single EventSource for
  * the lifetime of the tab and reconnects automatically (browser default
@@ -50,10 +50,10 @@ export default function WelcomeListener() {
       if (payload.type !== "welcome") return;
 
       const path = pathnameRef.current ?? "/";
-      // Don't disrupt admin or active survey work.
+      // Don't disrupt admin or active questionnaire work.
       const isProtected =
         path.startsWith("/admin") ||
-        path.startsWith("/survey") ||
+        path.startsWith("/questionnaire") ||
         path.startsWith("/welcome");
       if (isProtected) return;
       if (path === "/") return;
