@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 2970",
     "start:prod": "next start -H 0.0.0.0 -p 2970",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "next-ws patch || true"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",
@@ -16,11 +17,13 @@
     "dotenv": "^17.4.2",
     "framer-motion": "^12.38.0",
     "next": "16.2.3",
+    "next-ws": "^2.2.6",
     "pg": "^8.20.0",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
+    "ws": "^8.20.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -29,6 +32,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "prisma": "^6.19.3",

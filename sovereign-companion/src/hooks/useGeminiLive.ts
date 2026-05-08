@@ -1,18 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  EndSensitivity,
-  GoogleGenAI,
-  type LiveServerMessage,
-  Modality,
-  StartSensitivity,
-} from "@google/genai";
+import type { CompanionConfig } from "@/lib/systemPromptBuilder";
 
-// Model alternatives (per official docs):
-//   - "gemini-2.5-flash-native-audio-preview-12-2025" — expressive native-audio,
-//     supports affectiveDialog + proactivity (v1alpha only).
-//   - "gemini-3.1-flash-live-preview" — half-cascade, lowest round-trip latency.
+// We connect via our own WebSocket proxy (/api/live) — the master Gemini
+// API key never leaves the server, and tools attach directly to the live
+// session there (mirrors Shila's pattern). The browser becomes a thin
+// audio I/O client.
+
 export type GeminiLiveModel =
   | "gemini-2.5-flash-native-audio-preview-12-2025"
   | "gemini-3.1-flash-live-preview";
@@ -32,19 +27,20 @@ export interface FunctionCallHandlerResult {
 
 interface UseGeminiLiveOptions {
   userId: string;
-  systemPrompt: string;
+  // Kept for compatibility with the encounter page; the server now builds
+  // the system prompt from companionConfigForRebuild + admin overrides.
+  systemPrompt?: string;
   voiceName: string;
   languageCode: string;
-  // Optional companion config + locale — when provided, the server rebuilds
-  // the system prompt with admin overrides applied (hot-reload). The client
-  // STILL builds its own `systemPrompt` for legacy/fallback paths.
+  // The server uses this + the active admin override template to build the
+  // live system prompt at session-start time (hot-reload of /admin/prompt).
   companionConfigForRebuild?: Record<string, unknown>;
   rebuildLocale?: "en" | "id";
   model?: GeminiLiveModel;
-  // When true, uses native-audio features (affectiveDialog, proactivity).
-  // Only works on native-audio models + v1alpha endpoint.
   enableAffectiveFeatures?: boolean;
-  // Function declarations the model can call during the conversation.
+  // Function declarations the model can call. The server already knows
+  // them via COMPANION_FUNCTION_DECLARATIONS — this prop is kept for API
+  // compatibility but not used anymore.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   functionDeclarations?: any[];
   onAudioOutput?: (base64Audio: string) => void;
@@ -53,496 +49,253 @@ interface UseGeminiLiveOptions {
   onTurnComplete?: () => void;
   onGenerationComplete?: () => void;
   onGoAway?: (timeLeft?: string) => void;
+  // The server dispatches tools itself. This callback is fired locally so
+  // the encounter UI can still show a "Tool: control_smart_home(...)" badge
+  // — the server's result is what actually controlled the device.
   onFunctionCall?: (name: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>;
   onError?: (error: string) => void;
   onPhaseChange?: (phase: ConnectionPhase) => void;
 }
 
-const SESSION_HANDLE_KEY = "sovereign-live-session-handle";
-
-function loadSessionHandle(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return sessionStorage.getItem(SESSION_HANDLE_KEY);
-  } catch {
-    return null;
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
+  return btoa(binary);
 }
 
-function saveSessionHandle(handle: string | null) {
-  if (typeof window === "undefined") return;
-  try {
-    if (handle) sessionStorage.setItem(SESSION_HANDLE_KEY, handle);
-    else sessionStorage.removeItem(SESSION_HANDLE_KEY);
-  } catch {}
-}
-
-// The Gemini Live SDK sometimes emits plain objects / Errors through its
-// onerror / onclose callbacks — not standard ErrorEvent / CloseEvent. Walk
-// every own + prototype property so we never lose diagnostic info.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function dumpEvent(e: any): Record<string, unknown> {
-  if (e == null) return { _: "null-or-undefined" };
-  if (typeof e !== "object") return { _primitive: String(e) };
-  const out: Record<string, unknown> = {};
-  try {
-    for (const k of Object.keys(e)) out[k] = e[k];
-  } catch {}
-  for (const k of ["code", "reason", "message", "type", "wasClean", "error", "name", "stack"]) {
-    if (out[k] === undefined && (e as Record<string, unknown>)[k] !== undefined) {
-      out[k] = (e as Record<string, unknown>)[k];
-    }
-  }
-  if (e instanceof Error) {
-    out.message = e.message;
-    out.name = e.name;
-    out.stack = e.stack;
-  }
-  try {
-    out._json = JSON.stringify(e, Object.getOwnPropertyNames(e));
-  } catch {}
-  return out;
-}
-
-async function fetchEphemeralToken(payload: {
-  userId: string;
-  model: string;
-  systemPrompt?: string;
-  voiceName?: string;
-  languageCode?: string;
-  // Optional: server-side rebuild payload. When provided, the server pulls
-  // the active admin overrides and rebuilds the prompt with them — guarantees
-  // hot-reload of /admin/prompt edits without a client refresh.
-  companionConfigForRebuild?: Record<string, unknown>;
-  rebuildLocale?: "en" | "id";
-}): Promise<{ token: string } | { error: string }> {
-  try {
-    const res = await fetch("/api/gemini-token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      return { error: `ephemeral token fetch failed (${res.status}): ${text}` };
-    }
-    const data = (await res.json()) as { token?: string };
-    if (!data?.token) return { error: "ephemeral token response missing token field" };
-    return { token: data.token };
-  } catch (err) {
-    return { error: `ephemeral token fetch error: ${err instanceof Error ? err.message : String(err)}` };
-  }
+function buildLiveSocketUrl(): string {
+  if (typeof window === "undefined") return "";
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}/api/live`;
 }
 
 export function useGeminiLive(options: UseGeminiLiveOptions) {
   const {
     userId,
-    systemPrompt,
     voiceName,
     languageCode,
     companionConfigForRebuild,
-    rebuildLocale,
+    rebuildLocale = "id",
     model = "gemini-2.5-flash-native-audio-preview-12-2025",
-    enableAffectiveFeatures = true,
-    functionDeclarations,
   } = options;
 
   const [phase, setPhase] = useState<ConnectionPhase>("idle");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sessionRef = useRef<any>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const shouldReconnectRef = useRef<boolean>(false);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastErrorInfoRef = useRef<Record<string, unknown> | null>(null);
-  // Tracks whether the session ever reached "connected". If the very first
-  // connection attempt closes without ever opening, it's a config/auth
-  // failure — retrying just loops forever.
-  const connectedOnceRef = useRef<boolean>(false);
   const reconnectAttemptsRef = useRef<number>(0);
+  const connectedOnceRef = useRef<boolean>(false);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const MAX_RECONNECT_ATTEMPTS = 3;
 
-  // Mirror latest handlers in a ref so callbacks installed on the session
-  // never go stale between renders.
   const handlersRef = useRef(options);
   useEffect(() => {
     handlersRef.current = options;
   });
 
-  // Forward-ref for openSession so onclose can call it recursively without
-  // the lint "used-before-declared" rule and without a stale closure.
-  const openSessionRef = useRef<() => Promise<void>>(async () => {});
+  const setPhaseSafe = useCallback((next: ConnectionPhase) => {
+    setPhase(next);
+    handlersRef.current.onPhaseChange?.(next);
+  }, []);
 
-  const setPhaseSafe = useCallback(
-    (next: ConnectionPhase) => {
-      setPhase(next);
-      handlersRef.current.onPhaseChange?.(next);
-    },
-    [],
-  );
+  const openSocketRef = useRef<() => Promise<void>>(async () => {});
 
-  const buildConfig = useCallback(() => {
-    // Minimal docs-verbatim shape. Once a connection succeeds, we can layer
-    // transcription / VAD tuning / context compression back one at a time.
-    // Start from the smallest surface area so a silent-close isn't caused by
-    // a field the preview model rejects.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const config: any = {
-      responseModalities: [Modality.AUDIO],
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName } },
-      },
-      inputAudioTranscription: {},
-      outputAudioTranscription: {},
-      // VAD tuning — the default silence threshold is ~800ms which makes the
-      // gap between "user finished speaking" and "AI replies" feel sluggish.
-      // HIGH end-of-speech sensitivity + 300ms silence = turn-end fires fast,
-      // transcript appears fast, AI replies fast. Start sensitivity stays LOW
-      // so brief pauses mid-sentence don't prematurely cut the user off.
-      realtimeInputConfig: {
-        automaticActivityDetection: {
-          disabled: false,
-          startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_LOW,
-          endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH,
-          prefixPaddingMs: 20,
-          silenceDurationMs: 300,
-        },
-      },
+  const openSocket = useCallback(async () => {
+    setPhaseSafe("connecting");
+    const url = buildLiveSocketUrl();
+    if (!url) {
+      handlersRef.current.onError?.("Cannot build /api/live URL (window unavailable)");
+      setPhaseSafe("error");
+      return;
+    }
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(url);
+      ws.binaryType = "arraybuffer";
+    } catch (err) {
+      handlersRef.current.onError?.(
+        `WebSocket init failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      setPhaseSafe("error");
+      return;
+    }
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.debug("[live] socket open, sending start");
+      const startPayload = {
+        type: "start" as const,
+        userId,
+        voice: voiceName,
+        locale: rebuildLocale,
+        languageCode: languageCode || undefined,
+        model,
+        companionConfig: companionConfigForRebuild as CompanionConfig | undefined,
+      };
+      try {
+        ws.send(JSON.stringify(startPayload));
+      } catch (err) {
+        console.warn("[live] start send failed:", err);
+      }
     };
 
-    // languageCode is optional — only attach if caller provided one.
-    if (languageCode) {
-      config.speechConfig.languageCode = languageCode;
-    }
-
-    if (functionDeclarations && functionDeclarations.length > 0) {
-      config.tools = [{ functionDeclarations }];
-    }
-
-    // Note: sessionResumption / affectiveDialog / proactivity / VAD tuning
-    // temporarily disabled while we stabilize the handshake. Re-add behind
-    // a feature flag after confirming a clean onopen.
-    void enableAffectiveFeatures;
-
-    return config;
-  }, [systemPrompt, voiceName, languageCode, enableAffectiveFeatures, functionDeclarations]);
-
-  const handleMessage = useCallback(async (message: LiveServerMessage) => {
-    const h = handlersRef.current;
-
-    // Raw message trace — kept on during development so we can see every frame
-    // the server sends (setupComplete, transcriptions, audio parts, tool calls,
-    // goAway). If transcripts don't show up on screen, the raw log is the
-    // authoritative source for what the server is (or isn't) emitting.
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const preview: any = {};
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const m = message as any;
-      if (m.setupComplete) preview.setupComplete = true;
-      if (m.serverContent) {
-        const sc = m.serverContent;
-        preview.serverContent = {
-          hasModelTurn: !!sc.modelTurn,
-          inputTranscription: sc.inputTranscription,
-          outputTranscription: sc.outputTranscription,
-          generationComplete: sc.generationComplete,
-          turnComplete: sc.turnComplete,
-          interrupted: sc.interrupted,
-        };
-      }
-      if (m.toolCall) preview.toolCall = m.toolCall;
-      if (m.goAway) preview.goAway = m.goAway;
-      if (m.sessionResumptionUpdate) preview.sessionResumptionUpdate = true;
-      console.debug("[gemini-live] msg", preview);
-    } catch {}
-
-    // Session resumption handle update
-    if (message.sessionResumptionUpdate) {
-      const update = message.sessionResumptionUpdate;
-      if (update.resumable && update.newHandle) {
-        saveSessionHandle(update.newHandle);
-      }
-    }
-
-    // Server going away soon — preemptively reconnect
-    if (message.goAway) {
-      h.onGoAway?.(message.goAway.timeLeft);
-      shouldReconnectRef.current = true;
-      setPhaseSafe("reconnecting");
-    }
-
-    // Function calls (tool use) — execute and respond. Verbose logging here
-    // is critical for debugging "AI didn't react to mood": if these logs
-    // never fire, tools weren't bound (token-side issue); if they fire but
-    // dispatch returns ok:false, dispatcher path is broken; if they fire
-    // and dispatch is ok but smart home doesn't change, Tuya layer broke.
-    if (message.toolCall?.functionCalls && message.toolCall.functionCalls.length > 0) {
-      console.log("[gemini-live] tool call received:", message.toolCall.functionCalls.map((c) => `${c.name}(${JSON.stringify(c.args)})`).join(", "));
-      const responses: FunctionCallHandlerResult[] = [];
-      for (const call of message.toolCall.functionCalls) {
-        if (!call.name) continue;
-        try {
-          const result = h.onFunctionCall
-            ? await h.onFunctionCall(call.name, (call.args as Record<string, unknown>) ?? {})
-            : { ok: true };
-          console.log(`[gemini-live] tool ${call.name} →`, result);
-          responses.push({ name: call.name, response: result });
-        } catch (err) {
-          console.error(`[gemini-live] tool ${call.name} threw:`, err);
-          responses.push({
-            name: call.name,
-            response: { error: err instanceof Error ? err.message : String(err) },
-          });
-        }
-      }
-      try {
-        sessionRef.current?.sendToolResponse({
-          functionResponses: responses.map((r, i) => ({
-            id: message.toolCall?.functionCalls?.[i]?.id,
-            name: r.name,
-            response: r.response,
-          })),
-        });
-        console.log("[gemini-live] sent", responses.length, "tool response(s) back to model");
-      } catch (err) {
-        console.warn("[gemini-live] failed to send tool response:", err);
-      }
-    }
-
-    const content = message.serverContent;
-    if (!content) return;
-
-    // User spoke — barge-in. Stop companion audio immediately.
-    if (content.interrupted) {
-      h.onInterrupted?.();
-    }
-
-    // Audio output (companion voice)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const parts = (content as any).modelTurn?.parts as
-      | Array<{ inlineData?: { data?: string } }>
-      | undefined;
-    if (parts) {
-      for (const part of parts) {
-        if (part.inlineData?.data) {
-          h.onAudioOutput?.(part.inlineData.data);
-        }
-      }
-    }
-
-    // Input transcription (what the user said)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const inputT = (content as any).inputTranscription;
-    if (inputT?.text) {
-      h.onTranscript?.("user", inputT.text, inputT.finished === true);
-    }
-
-    // Output transcription (what the companion said)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const outputT = (content as any).outputTranscription;
-    if (outputT?.text) {
-      h.onTranscript?.("companion", outputT.text, outputT.finished === true);
-    }
-
-    if (content.generationComplete) h.onGenerationComplete?.();
-    if (content.turnComplete) h.onTurnComplete?.();
-  }, [setPhaseSafe]);
-
-  const openSession = useCallback(async () => {
-    try {
-      setPhaseSafe("connecting");
-
-      // Ephemeral token is the ONLY path — the raw GEMINI_API_KEY never
-      // leaves the server. Any failure here bubbles up as a fatal error;
-      // there is no NEXT_PUBLIC fallback.
-      const ephemeralResult = await fetchEphemeralToken({
-        userId,
-        model,
-        systemPrompt,
-        voiceName,
-        languageCode,
-        companionConfigForRebuild,
-        rebuildLocale,
-      });
-      if ("error" in ephemeralResult) {
-        handlersRef.current.onError?.(ephemeralResult.error);
-        setPhaseSafe("error");
+    ws.onmessage = (ev: MessageEvent) => {
+      // Binary frame = PCM audio out from companion. Convert to base64
+      // so the existing AudioPlayer (which decodes from base64) works.
+      if (ev.data instanceof ArrayBuffer) {
+        const bytes = new Uint8Array(ev.data);
+        const base64 = bytesToBase64(bytes);
+        handlersRef.current.onAudioOutput?.(base64);
         return;
       }
-      const apiKey = ephemeralResult.token;
+      // Text frame = JSON event.
+      let payload: Record<string, unknown>;
+      try {
+        payload = JSON.parse(typeof ev.data === "string" ? ev.data : "");
+      } catch {
+        return;
+      }
+      const type = payload.type as string;
+      const h = handlersRef.current;
+      switch (type) {
+        case "ready":
+          console.debug("[live] upstream ready");
+          connectedOnceRef.current = true;
+          reconnectAttemptsRef.current = 0;
+          setPhaseSafe("connected");
+          break;
+        case "input_transcript":
+          h.onTranscript?.("user", String(payload.text ?? ""), false);
+          break;
+        case "output_transcript":
+          h.onTranscript?.("companion", String(payload.text ?? ""), false);
+          break;
+        case "tool":
+          // The server already dispatched and applied the tool. We surface
+          // the event to the encounter UI so the badge / overlay shows it.
+          if (h.onFunctionCall) {
+            // Not an actual call — we already have the result. We just want
+            // the UI overlay to render. We resolve immediately so it doesn't
+            // block anything.
+            void h.onFunctionCall(
+              String(payload.name ?? ""),
+              (payload.args as Record<string, unknown>) ?? {},
+            ).catch(() => undefined);
+          }
+          console.log(
+            `[live] tool ${payload.name}(${JSON.stringify(payload.args)}) →`,
+            payload.result,
+          );
+          break;
+        case "interrupted":
+          h.onInterrupted?.();
+          break;
+        case "turn_complete":
+          h.onTurnComplete?.();
+          break;
+        case "error": {
+          const msg = String(payload.message ?? "unknown error");
+          console.error("[live] server error:", msg);
+          h.onError?.(msg);
+          break;
+        }
+        default:
+          break;
+      }
+    };
 
-      // Per docs: both the ephemeral-token path AND native-audio preview
-      // models require v1alpha. Keep it unconditional so 2.5-native-audio
-      // never lands on the stable endpoint which rejects unknown fields.
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: { apiVersion: "v1alpha" },
-      });
+    ws.onerror = (ev) => {
+      console.error("[live] socket error:", ev);
+    };
 
-      const config = buildConfig();
-      console.debug("[gemini-live] connecting", {
-        model,
-        ephemeral: true,
-        keyPreview: apiKey.slice(0, 6) + "…",
-        voiceName,
-        languageCode,
-        hasResumptionHandle: !!loadSessionHandle(),
-        configKeys: Object.keys(config),
-      });
-      lastErrorInfoRef.current = null;
+    ws.onclose = (ev) => {
+      wsRef.current = null;
+      const userInitiated = !shouldReconnectRef.current;
+      const isAbnormal = !userInitiated && ev.code !== 1000;
+      const everConnected = connectedOnceRef.current;
+      const attempts = reconnectAttemptsRef.current;
+      const canRetry =
+        shouldReconnectRef.current &&
+        isAbnormal &&
+        everConnected &&
+        attempts < MAX_RECONNECT_ATTEMPTS;
 
-      const session = await ai.live.connect({
-        model,
-        config,
-        callbacks: {
-          onopen: () => {
-            console.debug("[gemini-live] onopen");
-            connectedOnceRef.current = true;
-            reconnectAttemptsRef.current = 0;
-            setPhaseSafe("connected");
-          },
-          onmessage: (message: LiveServerMessage) => {
-            void handleMessage(message);
-          },
-          // The @google/genai SDK does NOT always pass a standard WebSocket
-          // ErrorEvent / CloseEvent — it sometimes passes a plain object or an
-          // Error. Dump every enumerable prop so we can see the real reason.
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onerror: (e: any) => {
-            const dump = dumpEvent(e);
-            console.error("[gemini-live] onerror raw:", e);
-            console.error("[gemini-live] onerror dump:", dump);
-            lastErrorInfoRef.current = dump;
-          },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onclose: (e: any) => {
-            sessionRef.current = null;
-            const dump = dumpEvent(e);
+      if (userInitiated) {
+        console.log("[live] socket closed cleanly", ev.code);
+      } else {
+        console.warn("[live] socket closed:", ev.code, ev.reason);
+      }
 
-            const code: number | undefined = typeof e?.code === "number" ? e.code : undefined;
-            const dumpMsg = typeof dump.message === "string" ? dump.message : "";
-            const lastMsg =
-              typeof lastErrorInfoRef.current?.message === "string"
-                ? (lastErrorInfoRef.current.message as string)
-                : "";
-            const reason: string =
-              (typeof e?.reason === "string" && e.reason) ||
-              dumpMsg ||
-              lastMsg ||
-              "";
+      if (isAbnormal && !canRetry) {
+        const friendly = !everConnected
+          ? `Live proxy failed to open. Cek log dev server di /api/live.`
+          : `Live proxy disconnected after ${attempts} retries. Stopping.`;
+        handlersRef.current.onError?.(friendly);
+      }
 
-            // User-initiated close (disconnect(), page unmount, or normal
-            // end-of-turn from Gemini) comes through with shouldReconnect=false
-            // and often an empty `{}` event — not an error.
-            const userInitiated = !shouldReconnectRef.current;
-            const isAbnormal = !userInitiated && (code === undefined || code !== 1000);
-            const everConnected = connectedOnceRef.current;
-            const attempts = reconnectAttemptsRef.current;
-            const canRetry =
-              shouldReconnectRef.current &&
-              isAbnormal &&
-              everConnected &&
-              attempts < MAX_RECONNECT_ATTEMPTS;
-
-            if (userInitiated) {
-              console.log("[gemini-live] session closed cleanly", code ? `(code ${code})` : "");
-            } else {
-              console.warn("[gemini-live] onclose:", { code, reason, dump });
-            }
-
-            if (isAbnormal) {
-              let friendly: string;
-              if (!everConnected) {
-                friendly = reason
-                  ? `Gemini Live failed to open: ${reason}${code ? ` (code ${code})` : ""}. Periksa GEMINI_API_KEY di server dan akses preview model di Google AI Studio.`
-                  : `Gemini Live failed to open. Periksa API key, akses preview model, dan log Next.js untuk /api/gemini-token.`;
-              } else if (!canRetry) {
-                friendly = `Gemini Live disconnected after ${attempts} reconnect attempt(s). Stopping retries.`;
-              } else {
-                friendly = reason
-                  ? `Gemini Live disconnected: ${reason}${code ? ` (code ${code})` : ""}`
-                  : `Gemini Live closed without detail. Reconnecting…`;
-              }
-              handlersRef.current.onError?.(friendly);
-            }
-
-            if (canRetry) {
-              reconnectAttemptsRef.current = attempts + 1;
-              setPhaseSafe("reconnecting");
-              if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-              const backoff = 500 * Math.pow(2, attempts);
-              reconnectTimerRef.current = setTimeout(() => {
-                void openSessionRef.current();
-              }, backoff);
-            } else {
-              shouldReconnectRef.current = false;
-              setPhaseSafe(isAbnormal ? "error" : "closed");
-              if (code === 1000 || (code && code >= 4000 && code < 5000)) {
-                saveSessionHandle(null);
-              }
-            }
-          },
-        },
-      });
-
-      sessionRef.current = session;
-    } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const anyErr = err as any;
-      const msg =
-        anyErr?.message ??
-        anyErr?.error?.message ??
-        (typeof err === "string" ? err : JSON.stringify(err));
-      console.error("[gemini-live] connect threw:", err);
-      handlersRef.current.onError?.(`Failed to connect: ${msg}`);
-      setPhaseSafe("error");
-    }
-  }, [buildConfig, handleMessage, model, setPhaseSafe, voiceName, languageCode]);
+      if (canRetry) {
+        reconnectAttemptsRef.current = attempts + 1;
+        setPhaseSafe("reconnecting");
+        if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+        const backoff = 500 * Math.pow(2, attempts);
+        reconnectTimerRef.current = setTimeout(() => {
+          void openSocketRef.current();
+        }, backoff);
+      } else {
+        shouldReconnectRef.current = false;
+        setPhaseSafe(isAbnormal ? "error" : "closed");
+      }
+    };
+  }, [
+    userId,
+    voiceName,
+    languageCode,
+    rebuildLocale,
+    model,
+    companionConfigForRebuild,
+    setPhaseSafe,
+  ]);
 
   useEffect(() => {
-    openSessionRef.current = openSession;
-  }, [openSession]);
+    openSocketRef.current = openSocket;
+  }, [openSocket]);
 
   const connect = useCallback(async () => {
     shouldReconnectRef.current = true;
     connectedOnceRef.current = false;
     reconnectAttemptsRef.current = 0;
-    await openSession();
-  }, [openSession]);
+    await openSocket();
+  }, [openSocket]);
 
   const sendAudio = useCallback((base64PcmChunk: string) => {
-    const session = sessionRef.current;
-    if (!session) return;
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
     try {
-      session.sendRealtimeInput({
-        audio: { data: base64PcmChunk, mimeType: "audio/pcm;rate=16000" },
-      });
+      // Decode base64 → bytes → send as binary frame.
+      const binaryStr = atob(base64PcmChunk);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+      ws.send(bytes);
     } catch (err) {
-      console.error("Error sending audio:", err);
+      console.warn("[live] sendAudio failed:", err);
     }
   }, []);
 
-  // Signal end of user audio stream — lets server finalize transcription fast.
   const endAudioStream = useCallback(() => {
-    const session = sessionRef.current;
-    if (!session) return;
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
     try {
-      session.sendRealtimeInput({ audioStreamEnd: true });
+      ws.send(JSON.stringify({ type: "audio_end" }));
     } catch {}
   }, []);
 
-  // Optional: send a text-only user message (e.g., system event).
   const sendText = useCallback((text: string) => {
-    const session = sessionRef.current;
-    if (!session) return;
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
     try {
-      session.sendClientContent({
-        turns: [{ role: "user", parts: [{ text }] }],
-        turnComplete: true,
-      });
-    } catch (err) {
-      console.error("Error sending text:", err);
-    }
+      ws.send(JSON.stringify({ type: "text", text }));
+    } catch {}
   }, []);
 
   const disconnect = useCallback(() => {
@@ -551,28 +304,27 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
-    if (sessionRef.current) {
+    const ws = wsRef.current;
+    if (ws) {
       try {
-        sessionRef.current.close();
+        ws.close(1000, "user_disconnect");
       } catch {}
-      sessionRef.current = null;
+      wsRef.current = null;
     }
-    saveSessionHandle(null);
     setPhaseSafe("closed");
   }, [setPhaseSafe]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       shouldReconnectRef.current = false;
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
       }
-      if (sessionRef.current) {
+      if (wsRef.current) {
         try {
-          sessionRef.current.close();
+          wsRef.current.close();
         } catch {}
-        sessionRef.current = null;
+        wsRef.current = null;
       }
     };
   }, []);
