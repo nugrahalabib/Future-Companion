@@ -75,6 +75,18 @@ export default function CheckoutPage() {
   }, [phase, count]);
 
   const handleReceived = async () => {
+    // Fire-and-forget the Tuya delivery scene: every light → bright
+    // white, lampu tidur → off. Doesn't block the UI — the visitor
+    // shouldn't wait on a Tuya cloud round-trip to advance.
+    fetch("/api/checkout/celebrate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }).catch((err) => {
+      // Lighting is theatrical; we never want a Tuya glitch to break
+      // the booth flow. Log and move on.
+      console.warn("[checkout] celebrate scene failed:", err);
+    });
+
     // Update session
     if (sessionId) {
       await fetch("/api/sessions", {
