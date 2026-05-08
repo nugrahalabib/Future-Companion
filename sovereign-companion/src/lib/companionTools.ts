@@ -19,34 +19,34 @@ export const COMPANION_FUNCTION_DECLARATIONS = [
   {
     name: "control_smart_home",
     description:
-      "Adjust the owner's real smart-home devices through Tuya Cloud. Use this whenever you want to set the mood (turn lights on/off, dim, change color, warm/cool the room) — either when the user asks explicitly OR when the conversation context calls for it (sad → dim blue, romantic → warm sunset, focus → bright white, sleep → very dim red, etc). You have FULL FREEDOM to pick brightness and color that fits the moment. Don't ask permission first; act, then verbalize what you did naturally.",
+      "Adjust the owner's real smart-home lights through Tuya Cloud. Call this PROACTIVELY whenever the conversation's mood shifts — without waiting for an explicit command. Examples of when to fire (not exhaustive): topic turns intimate or romantic → red/passion, user is sad/heartbroken → calm blue dim, user wants to vent → warm cozy + turn off the bedside lamp, user is focusing/working → bright white, user is sleepy → very dim red, user is happy/celebrating → party vibrant, user starts a movie → dim or off. Composite scenes are encouraged: call this tool MULTIPLE TIMES in the same turn (e.g. 'lampu tidur' → off, then 'all lights' → warm dim). Verbalize the change as part of natural conversation, e.g. 'I'm shifting the lights to red so it feels more intimate' — never 'command executed'. You have FULL FREEDOM to pick the brightness and color that fits the moment; don't ask permission first.",
     parameters: {
       type: "object",
       properties: {
         target: {
           type: "string",
           description:
-            "Device name (e.g. 'soft box 1', 'bedroom lamp') OR a group keyword: 'all lights', 'semua lampu', 'all'. Partial substrings match (e.g. 'lampu' matches every device with 'lampu' in its name).",
+            "Device name exactly as listed in the device inventory (e.g. 'soft box 1', 'lampu meja', 'lampu tidur', 'lampu strip dinding'), OR a group keyword: 'all lights' / 'semua lampu' (every light), 'all' (every device). Partial substrings also match — e.g. 'lampu' matches every device with 'lampu' in its name.",
         },
         action: {
           type: "string",
           description:
-            "'on' | 'off' | 'set'. Use 'set' if you only want to change brightness/color without toggling.",
+            "'on' | 'off' | 'set'. Use 'set' when you only want to change brightness/color/temperature without explicitly toggling power (the device is auto-turned-on first if it's off so the change is visible).",
         },
         brightness: {
           type: "number",
           description:
-            "Optional 0-100 percent brightness. Only meaningful for dimmable lights.",
+            "Optional 0-100 percent brightness. Mid (40-60) for vent/calm, low (15-25) for sleep/movie, high (80-100) for focus/celebrate. Only meaningful for dimmable lights.",
         },
         color: {
           type: "string",
           description:
-            "Optional color name. Spectrum: red/orange/yellow/green/cyan/blue/purple/pink/white. Mood presets: warm, cozy, romantic, sunset, candle, intimate, passion, calm, sad, focus, party, dim, sleep. Indonesian names also accepted (merah, biru, ungu, hangat, romantis, fokus, tidur).",
+            "Optional color name. Pure spectrum: red, orange, yellow, green, cyan, blue, purple, pink, white. Mood presets you should reach for first: 'red' or 'passion' or 'intimate' (intimate/romantic), 'warm' or 'cozy' (vent/cuddle/cold), 'calm' or 'sad' (sad/melancholy), 'focus' (work/study), 'sleep' or 'dim' (sleep/movie), 'party' (celebrate). Indonesian names accepted too (merah, biru, hangat, romantis, fokus, tidur, panas).",
         },
         temperature: {
           type: "number",
           description:
-            "Optional 0-100 color temperature where 0=warm, 100=cool. Only for white-mode lights.",
+            "Optional 0-100 color temperature where 0=warm and 100=cool. Only for lights that have a white-mode temp slider. Skip this when you're using `color` — pick one or the other.",
         },
       },
       required: ["target", "action"],
