@@ -24,6 +24,12 @@ export async function POST(req: NextRequest) {
   const name = String(body.name ?? "");
   const args = (body.args ?? {}) as Record<string, unknown>;
 
+  // Verbose log so the operator can see in the dev terminal exactly what
+  // the AI tried to call. Critical for debugging "AI didn't react to my
+  // mood shift" — if no log line appears, the issue is upstream (tool
+  // wasn't bound) rather than at the dispatcher.
+  console.log(`[companion-tools] AI called ${name}`, JSON.stringify(args));
+
   try {
     // The companion-tools dispatcher is the AI runtime path. Every call
     // here passes aiOnly=true so the model can only see and address the
@@ -90,10 +96,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    console.warn(`[companion-tools] Unknown tool: ${name}`);
     return Response.json({ ok: false, error: `Unknown tool: ${name}` }, { status: 400 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[companion-tools/execute] failed:", message);
+    console.error(`[companion-tools] ${name} failed:`, message);
     return Response.json({ ok: false, error: message }, { status: 500 });
   }
 }

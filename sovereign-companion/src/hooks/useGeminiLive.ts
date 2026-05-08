@@ -271,8 +271,13 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
       setPhaseSafe("reconnecting");
     }
 
-    // Function calls (tool use) — execute and respond
+    // Function calls (tool use) — execute and respond. Verbose logging here
+    // is critical for debugging "AI didn't react to mood": if these logs
+    // never fire, tools weren't bound (token-side issue); if they fire but
+    // dispatch returns ok:false, dispatcher path is broken; if they fire
+    // and dispatch is ok but smart home doesn't change, Tuya layer broke.
     if (message.toolCall?.functionCalls && message.toolCall.functionCalls.length > 0) {
+      console.log("[gemini-live] tool call received:", message.toolCall.functionCalls.map((c) => `${c.name}(${JSON.stringify(c.args)})`).join(", "));
       const responses: FunctionCallHandlerResult[] = [];
       for (const call of message.toolCall.functionCalls) {
         if (!call.name) continue;
@@ -280,8 +285,10 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
           const result = h.onFunctionCall
             ? await h.onFunctionCall(call.name, (call.args as Record<string, unknown>) ?? {})
             : { ok: true };
+          console.log(`[gemini-live] tool ${call.name} →`, result);
           responses.push({ name: call.name, response: result });
         } catch (err) {
+          console.error(`[gemini-live] tool ${call.name} threw:`, err);
           responses.push({
             name: call.name,
             response: { error: err instanceof Error ? err.message : String(err) },
@@ -296,8 +303,9 @@ export function useGeminiLive(options: UseGeminiLiveOptions) {
             response: r.response,
           })),
         });
+        console.log("[gemini-live] sent", responses.length, "tool response(s) back to model");
       } catch (err) {
-        console.warn("Failed to send tool response:", err);
+        console.warn("[gemini-live] failed to send tool response:", err);
       }
     }
 
