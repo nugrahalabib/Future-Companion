@@ -38,7 +38,7 @@ export default function CompanionVisual() {
 
   const skin = getSkinTone(skinTone);
   const tLabel = (opt: { labelKey?: string; label: string } | null) =>
-    opt ? (opt.labelKey ? t(opt.labelKey) : opt.label) : "—";
+    opt ? (opt.labelKey ? t(opt.labelKey) : opt.label) : "-";
 
   const faceOption = useMemo(
     () => findVariant(getFaceOptions(gender), faceShape),
@@ -220,7 +220,7 @@ function resolveSpotlight({
     return {
       key: `gender-${gender ?? "none"}`,
       kicker: t("visual.preview.gender"),
-      title: gender ? tLabel({ label: gender, labelKey: `creator.gender.${gender}.label` }) : "—",
+      title: gender ? tLabel({ label: gender, labelKey: `creator.gender.${gender}.label` }) : "-",
       status: gender ? lockedStatus : waitingStatus,
       visual: gender ? (
         <div className="flex flex-col items-center gap-4">
@@ -388,7 +388,7 @@ function resolveSpotlight({
   return {
     key: `hobbies-${hobbies.length}`,
     kicker: t("visual.preview.hobbies"),
-    title: hobbies.length ? `${hobbies.length}` : "—",
+    title: hobbies.length ? `${hobbies.length}` : "-",
     status: sealedStatus,
     visual: (
       <div className="flex flex-col items-center gap-5 text-center">

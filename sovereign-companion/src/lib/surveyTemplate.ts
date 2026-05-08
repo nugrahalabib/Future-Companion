@@ -308,7 +308,7 @@ export const DEFAULT_TEMPLATE: SurveyTemplateShape = {
             { value: "identity-confusion", labelEn: "Identity confusion",           labelId: "Kebingungan identitas" },
             { value: "inequality",         labelEn: "Access inequality",            labelId: "Ketimpangan akses" },
             { value: "exploitation",       labelEn: "Exploitation",                 labelId: "Eksploitasi" },
-            { value: "none",               labelEn: "None — I see no major concerns", labelId: "Tidak ada — saya tidak melihat masalah besar" },
+            { value: "none",               labelEn: "None, I see no major concerns", labelId: "Tidak ada, saya tidak melihat masalah besar" },
           ],
         },
         {
@@ -368,9 +368,9 @@ export const DEFAULT_TEMPLATE: SurveyTemplateShape = {
           labelId: "Range harga berapa yang kamu harapkan untuk unit seperti ini?",
           options: [
             { value: "under-50m",     labelEn: "Under Rp 50M",        labelId: "Di bawah Rp 50jt" },
-            { value: "50-150m",       labelEn: "Rp 50M – 150M",       labelId: "Rp 50jt – 150jt" },
-            { value: "150-500m",      labelEn: "Rp 150M – 500M",      labelId: "Rp 150jt – 500jt" },
-            { value: "500m-1b",       labelEn: "Rp 500M – 1B",        labelId: "Rp 500jt – 1M" },
+            { value: "50-150m",       labelEn: "Rp 50M - 150M",       labelId: "Rp 50jt - 150jt" },
+            { value: "150-500m",      labelEn: "Rp 150M - 500M",      labelId: "Rp 150jt - 500jt" },
+            { value: "500m-1b",       labelEn: "Rp 500M - 1B",        labelId: "Rp 500jt - 1M" },
             { value: "over-1b",       labelEn: "Over Rp 1B",          labelId: "Di atas Rp 1M" },
             { value: "would-not-buy", labelEn: "I wouldn't purchase", labelId: "Saya tidak akan membeli" },
           ],

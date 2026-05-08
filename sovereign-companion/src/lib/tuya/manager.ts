@@ -520,7 +520,7 @@ export async function executeControl(
         ok: false,
         msg: dev.switchCode
           ? "No applicable commands for this device"
-          : `${dev.name} has no controllable on/off — use the device's native app`,
+          : `${dev.name} has no controllable on/off, use the device's native app`,
       });
       continue;
     }

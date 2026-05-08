@@ -21,7 +21,7 @@ export default function AssemblyAnimation({ durationMs }: AssemblyAnimationProps
 
   const script: LogLine[] = useMemo(
     () => [
-      { ts: 0.00, kind: "head", text: "GENESIS PROTOCOL v2.4 — UNIT-0421" },
+      { ts: 0.00, kind: "head", text: "GENESIS PROTOCOL v2.4, UNIT-0421" },
       { ts: 0.10, kind: "info", text: "$ sudo forge --target=humanoid --persona=custom" },
       { ts: 0.55, kind: "info", text: t("assembly.phase.calibrate.title") + "…" },
       { ts: 1.10, kind: "ok",   text: "  [✓] neural lattice aligned   (0.002ms drift)" },
@@ -33,7 +33,7 @@ export default function AssemblyAnimation({ durationMs }: AssemblyAnimationProps
       { ts: 4.35, kind: "ok",   text: "  [✓] persona matrix imprinted (signature OK)" },
       { ts: 4.70, kind: "info", text: t("assembly.phase.seal.title") + "…" },
       { ts: 5.40, kind: "ok",   text: "  [✓] composite manifold sealed" },
-      { ts: 5.75, kind: "head", text: "∎ assembly complete — vessel ready for embodiment" },
+      { ts: 5.75, kind: "head", text: "∎ assembly complete, vessel ready for embodiment" },
     ],
     [t],
   );

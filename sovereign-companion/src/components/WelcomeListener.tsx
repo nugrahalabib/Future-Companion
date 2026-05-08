@@ -58,7 +58,7 @@ export default function WelcomeListener() {
       if (isProtected) return;
       if (path === "/") return;
 
-      console.log("[welcome-listener] welcome event — bouncing to /");
+      console.log("[welcome-listener] welcome event, bouncing to /");
       // Navigation only — local stores reset themselves on the landing
       // page CTA already; the welcome ceremony is exit-back-to-start.
       router.replace("/");

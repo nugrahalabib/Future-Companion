@@ -18,8 +18,8 @@ import {
 // public DynamicSection renderer — DO NOT add types here without adding the
 // matching renderer branch in DynamicSection.tsx first).
 const QUESTION_TYPES: { value: QuestionType; labelEn: string; labelId: string; needsOptions: boolean }[] = [
-  { value: "likert",   labelEn: "Likert (1–5 scale)",       labelId: "Likert (skala 1–5)",     needsOptions: false },
-  { value: "nps",      labelEn: "NPS (0–10 scale)",         labelId: "NPS (skala 0–10)",       needsOptions: false },
+  { value: "likert",   labelEn: "Likert (1-5 scale)",       labelId: "Likert (skala 1-5)",     needsOptions: false },
+  { value: "nps",      labelEn: "NPS (0-10 scale)",         labelId: "NPS (skala 0-10)",       needsOptions: false },
   { value: "single",   labelEn: "Single choice (radio)",    labelId: "Pilihan tunggal (radio)", needsOptions: true  },
   { value: "multi",    labelEn: "Multiple choice (pills)",  labelId: "Pilihan ganda (pills)",  needsOptions: true  },
   { value: "dropdown", labelEn: "Dropdown",                 labelId: "Dropdown",               needsOptions: true  },

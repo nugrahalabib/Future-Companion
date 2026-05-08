@@ -197,7 +197,7 @@ export default function SystemPromptEditor() {
         inline
       />
 
-      {/* Section overrides — defaults shown for context */}
+      {/* Section overrides, defaults shown for context */}
       <PromptBlock
         title={t("admin.prompt.block.primeDirectives.title")}
         description={t("admin.prompt.block.primeDirectives.desc")}

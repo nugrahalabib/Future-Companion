@@ -287,7 +287,7 @@ export default function PersonaStep() {
                   </div>
                 </div>
 
-                {/* Auto-expanded detail — only when selected */}
+                {/* Auto-expanded detail, only when selected */}
                 <AnimatePresence initial={false}>
                   {selected && (
                     <motion.div
@@ -354,7 +354,7 @@ export default function PersonaStep() {
           ))}
         </div>
 
-        {/* Persona Signature — live summary, nested under the preset controls */}
+        {/* Persona Signature, live summary, nested under the preset controls */}
         <div
           className="mt-3 rounded-xl border px-3.5 py-3"
           style={{

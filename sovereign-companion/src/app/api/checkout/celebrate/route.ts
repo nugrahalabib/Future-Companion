@@ -35,7 +35,7 @@ export async function POST(_req: NextRequest) {
   const steps: LightingStep[] = [];
 
   const run = async (label: string, args: Parameters<typeof executeControl>[0]) => {
-    const r = await executeControl(args, false); // not aiOnly — operator-curated scene
+    const r = await executeControl(args, false); // not aiOnly, operator-curated scene
     steps.push({ label, ok: r.success, message: r.message ?? r.error });
   };
 
@@ -58,7 +58,7 @@ export async function POST(_req: NextRequest) {
 
   const ok = steps.every((s) => s.ok);
   console.log(
-    `[checkout-celebrate] fired — ${steps.map((s) => `${s.ok ? "✓" : "✗"} ${s.label}`).join(" · ")}`,
+    `[checkout-celebrate] fired, ${steps.map((s) => `${s.ok ? "✓" : "✗"} ${s.label}`).join(" · ")}`,
   );
   return Response.json({ ok, steps });
 }

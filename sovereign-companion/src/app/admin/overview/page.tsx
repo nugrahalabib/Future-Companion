@@ -395,7 +395,7 @@ export default function AdminOverviewPage() {
 function ActivityRow({ row }: { row: ActivityItem }) {
   const { t, locale } = useT();
   const name = row.userName;
-  const stage = row.dropStage ?? "—";
+  const stage = row.dropStage ?? "-";
   const labelKey = `admin.overview.activity.label.${row.kind}`;
   const label = t(labelKey, { name, stage });
   const companion = row.companionName ?? t("admin.overview.activity.subtitle.unnamed");

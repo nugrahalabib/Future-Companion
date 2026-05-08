@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useT } from "@/lib/i18n/useT";
 
 /**
  * Public welcome page — the booth's "ceremony start" surface. One giant
@@ -19,6 +20,7 @@ import { motion, AnimatePresence } from "framer-motion";
 type Phase = "idle" | "triggering" | "playing" | "done" | "error";
 
 export default function WelcomePage() {
+  const { t } = useT();
   const [phase, setPhase] = useState<Phase>("idle");
   const [audioName, setAudioName] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -45,8 +47,8 @@ export default function WelcomePage() {
         setPhase("error");
         setErrorMsg(
           data.error === "no_active_welcome_audio"
-            ? "No welcome audio is set. Ask the booth admin to activate one in /admin/welcome."
-            : data.error ?? "Trigger failed.",
+            ? t("welcome.error.noActive")
+            : data.error ?? t("welcome.error.trigger"),
         );
         return;
       }
@@ -69,15 +71,14 @@ export default function WelcomePage() {
       };
       a.onerror = () => {
         setPhase("error");
-        setErrorMsg("Audio playback failed.");
+        setErrorMsg(t("welcome.error.playback"));
       };
       try {
         await a.play();
       } catch (err) {
         setPhase("error");
-        setErrorMsg(
-          err instanceof Error ? `Playback blocked: ${err.message}` : "Playback blocked.",
-        );
+        const detail = err instanceof Error ? err.message : "";
+        setErrorMsg(detail ? `${t("welcome.error.playbackBlocked")} ${detail}` : t("welcome.error.playbackBlocked"));
       }
     } catch (err) {
       setPhase("error");
@@ -98,20 +99,20 @@ export default function WelcomePage() {
 
   const buttonLabel =
     phase === "triggering"
-      ? "Mempersiapkan…"
+      ? t("welcome.button.preparing")
       : phase === "playing"
-        ? "▶  Sedang Memutar"
+        ? `▶  ${t("welcome.button.playing")}`
         : phase === "done"
-          ? "Selesai"
+          ? t("welcome.button.done")
           : phase === "error"
-            ? "Coba Lagi"
-            : "Click Here";
+            ? t("welcome.button.retry")
+            : t("welcome.button.idle");
 
   const buttonDisabled = phase === "triggering" || phase === "playing";
 
   return (
     <main className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Ambient gradient backdrop — doesn't render on the actual lights but
+      {/* Ambient gradient backdrop, doesn't render on the actual lights but
           gives the screen a presence while the audio plays. */}
       <motion.div
         className="absolute inset-0 pointer-events-none"
@@ -134,10 +135,10 @@ export default function WelcomePage() {
           className="text-center space-y-1"
         >
           <p className="font-display text-[11px] uppercase tracking-[0.4em] text-cyan-accent/80">
-            The Sovereign Companion · 2076
+            The Sovereign Companion · 2075
           </p>
           <h1 className="font-display text-2xl sm:text-3xl text-text-primary tracking-wide">
-            Selamat Datang
+            {t("welcome.greeting")}
           </h1>
         </motion.div>
 
@@ -204,7 +205,7 @@ export default function WelcomePage() {
               exit={{ opacity: 0 }}
               className="text-[12px] font-display uppercase tracking-widest text-bio-green/80"
             >
-              Selamat datang.
+              {t("welcome.done")}
             </motion.p>
           )}
           {phase === "error" && errorMsg && (

@@ -4,7 +4,7 @@ Guidance for Claude Code working in this repository. Keep this file in sync with
 
 ## Project Overview
 
-**The Sovereign Companion** — a functional end-to-end prototype for the "Tech AI Future Indonesia" exhibition. Set in 2076, it stages a marketplace where a visitor designs, voice-tests, and "orders" a hyper-customizable AI humanoid companion. The demo captures real user data for product feedback, market research, and academic publication (Harvard-grade journal material).
+**The Sovereign Companion** — a functional end-to-end prototype for the "Tech AI Future Indonesia" exhibition. Set in 2075, it stages a marketplace where a visitor designs, voice-tests, and "orders" a hyper-customizable AI humanoid companion. The demo captures real user data for product feedback, market research, and academic publication (Harvard-grade journal material).
 
 ## Strategic Framing (Triple Purpose — Not Just a Demo)
 

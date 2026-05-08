@@ -212,7 +212,7 @@ function KV({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-text-muted font-display uppercase tracking-wider text-[10px]">
         {label}
       </span>
-      <span className="text-text-primary break-words">{value ?? "—"}</span>
+      <span className="text-text-primary break-words">{value ?? "-"}</span>
     </div>
   );
 }
@@ -239,14 +239,14 @@ function ProfileSection({
       <SectionTitle>{t("admin.drawer.profile.section.identity")}</SectionTitle>
       {/* fullName is legacy and only present for pre-2026-05-09
           rows. Hide the row entirely when empty so new respondents
-          don't show a blank "Full name —" line. */}
+          don't show a blank "Full name," line. */}
       {u.fullName?.trim() && (
         <KV label={t("admin.drawer.profile.fullName")} value={u.fullName} />
       )}
-      <KV label={t("admin.drawer.profile.nickname")} value={u.nickname || "—"} />
+      <KV label={t("admin.drawer.profile.nickname")} value={u.nickname || "-"} />
       <KV label={t("admin.drawer.profile.email")} value={u.email} />
       <KV label={t("admin.drawer.profile.ageRange")} value={ageToRangeLabel(u.age)} />
-      <KV label={t("admin.drawer.profile.profession")} value={u.profession || "—"} />
+      <KV label={t("admin.drawer.profile.profession")} value={u.profession || "-"} />
 
       <KV
         label={t("admin.drawer.profile.relationship")}
@@ -301,10 +301,10 @@ function CompanionSection({
       )}
 
       <SectionTitle>{t("admin.drawer.companion.naming")}</SectionTitle>
-      <KV label={t("admin.drawer.companion.companionName")} value={c.companionName || "—"} />
+      <KV label={t("admin.drawer.companion.companionName")} value={c.companionName || "-"} />
       <KV
         label={t("admin.drawer.companion.userNicknames")}
-        value={nicknames.length ? nicknames.join(", ") : "—"}
+        value={nicknames.length ? nicknames.join(", ") : "-"}
       />
 
       <SectionTitle>{t("admin.drawer.companion.physical")}</SectionTitle>
@@ -427,7 +427,7 @@ function SurveySection({
   }
 
   const renderValue = (q: SurveyQuestion, raw: unknown): React.ReactNode => {
-    if (raw === null || raw === undefined || raw === "") return "—";
+    if (raw === null || raw === undefined || raw === "") return "-";
     if (q.type === "likert") {
       const n = typeof raw === "number" ? raw : Number(raw);
       if (!Number.isFinite(n)) return String(raw);
@@ -467,7 +467,7 @@ function SurveySection({
           arr = [raw];
         }
       }
-      if (arr.length === 0) return "—";
+      if (arr.length === 0) return "-";
       const optMap = new Map((q.options ?? []).map((o) => [o.value, o]));
       return (
         <span className="inline-flex flex-wrap gap-1">
@@ -571,7 +571,7 @@ function SessionSection({
   if (!s) return <p className="text-sm text-text-muted">{t("admin.drawer.session.noSession")}</p>;
   const ts = (k: string) => {
     const v = s[k];
-    return v ? new Date(v as string).toLocaleString(dateLocale) : "—";
+    return v ? new Date(v as string).toLocaleString(dateLocale) : "-";
   };
   const dur = Number(s.encounterDuration);
   return (
@@ -597,7 +597,7 @@ function SessionSection({
                 m: Math.floor(dur / 60),
                 s: Math.round(dur) % 60,
               })
-            : "—"
+            : "-"
         }
       />
       <KV

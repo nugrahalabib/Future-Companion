@@ -16,25 +16,25 @@ export type RoleId =
 // Sadaltager, Schedar, Sulafat, Umbriel, Vindemiatrix, Zubenelgenubi.
 export const VOICE_MAP: Record<Gender, Record<RoleId, string>> = {
   female: {
-    "romantic-partner":    "Leda",      // Youthful, warm — emotional partner tone
-    "dominant-assistant":  "Kore",      // Firm, assertive — decisive lead
-    "passive-listener":    "Achernar",  // Soft, gentle — attentive listener
-    "intellectual-rival":  "Erinome",   // Clear, articulate — sharp debater
+    "romantic-partner":    "Leda",      // Youthful, warm, emotional partner tone
+    "dominant-assistant":  "Kore",      // Firm, assertive, decisive lead
+    "passive-listener":    "Achernar",  // Soft, gentle, attentive listener
+    "intellectual-rival":  "Erinome",   // Clear, articulate, sharp debater
   },
   male: {
-    "romantic-partner":    "Puck",      // Upbeat, playful — warm romantic
-    "dominant-assistant":  "Orus",      // Firm, authoritative — commanding
-    "passive-listener":    "Umbriel",   // Easy-going, relaxed — patient
-    "intellectual-rival":  "Charon",    // Informative, measured — cerebral
+    "romantic-partner":    "Puck",      // Upbeat, playful, warm romantic
+    "dominant-assistant":  "Orus",      // Firm, authoritative, commanding
+    "passive-listener":    "Umbriel",   // Easy-going, relaxed, patient
+    "intellectual-rival":  "Charon",    // Informative, measured, cerebral
   },
   // Non-binary roster — voices chosen for timbre that doesn't strongly index
   // a single gender. Aoede (warm/neutral), Iapetus (bright/clear), Despina
   // (soft/centered), Gacrux (cerebral/measured).
   nonbinary: {
-    "romantic-partner":    "Aoede",     // Warm, neutral — present and intimate
-    "dominant-assistant":  "Iapetus",   // Bright, decisive — confident neutral
-    "passive-listener":    "Despina",   // Soft, centered — reflective listener
-    "intellectual-rival":  "Gacrux",    // Cerebral, measured — sharp neutral
+    "romantic-partner":    "Aoede",     // Warm, neutral, present and intimate
+    "dominant-assistant":  "Iapetus",   // Bright, decisive, confident neutral
+    "passive-listener":    "Despina",   // Soft, centered, reflective listener
+    "intellectual-rival":  "Gacrux",    // Cerebral, measured, sharp neutral
   },
 };
 

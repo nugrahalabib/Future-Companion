@@ -144,7 +144,7 @@ export default function CreatorPage() {
         </AnimatePresence>
 
         <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
-          {/* Left — stepper */}
+          {/* Left, stepper */}
           <motion.div
             className="lg:w-[60%] px-5 py-4 lg:px-8 lg:py-5"
             initial={{ opacity: 0, x: -24 }}
@@ -195,7 +195,7 @@ export default function CreatorPage() {
             </div>
           </motion.div>
 
-          {/* Right — live visual */}
+          {/* Right, live visual */}
           <motion.div
             className="hidden lg:block lg:w-[40%] border-l border-glass-border"
             initial={{ opacity: 0, x: 24 }}

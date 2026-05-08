@@ -27,11 +27,11 @@ export interface AgeRange {
 }
 
 export const AGE_RANGES: readonly AgeRange[] = [
-  { id: "18-24", min: 18, max: 24, label: "18 – 24" },
-  { id: "25-30", min: 25, max: 30, label: "25 – 30" },
-  { id: "31-40", min: 31, max: 40, label: "31 – 40" },
-  { id: "41-50", min: 41, max: 50, label: "41 – 50" },
-  { id: "51-60", min: 51, max: 60, label: "51 – 60" },
+  { id: "18-24", min: 18, max: 24, label: "18-24" },
+  { id: "25-30", min: 25, max: 30, label: "25-30" },
+  { id: "31-40", min: 31, max: 40, label: "31-40" },
+  { id: "41-50", min: 41, max: 50, label: "41-50" },
+  { id: "51-60", min: 51, max: 60, label: "51-60" },
   { id: "60+",   min: 60, max: 200, label: "60+" },
 ];
 
@@ -51,11 +51,11 @@ export function ageRangeById(id: string): AgeRange | undefined {
  * for null/0 so the admin UI never renders a stray "0".
  */
 export function ageToRangeLabel(age: number | null | undefined): string {
-  if (age == null || age <= 0) return "—";
+  if (age == null || age <= 0) return "-";
   for (const r of AGE_RANGES) {
     if (age >= r.min && age <= r.max) return r.label;
   }
-  return "—";
+  return "-";
 }
 
 export function ageToRangeId(age: number | null | undefined): string | null {

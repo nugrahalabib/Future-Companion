@@ -122,7 +122,7 @@ export async function POST(_req: NextRequest) {
   const lighting = await lightingPromise;
 
   console.log(
-    `[welcome] trigger fired — audio=${audio?.id ?? "none"} broadcast=${recipients} subs lighting=${lighting.ok ? "ok" : "partial"}`,
+    `[welcome] trigger fired, audio=${audio?.id ?? "none"} broadcast=${recipients} subs lighting=${lighting.ok ? "ok" : "partial"}`,
   );
 
   if (!audio) {

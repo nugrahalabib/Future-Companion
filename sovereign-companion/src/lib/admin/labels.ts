@@ -180,7 +180,7 @@ export function labelize(
   key: string | null | undefined,
   locale: Locale = "en",
 ): string {
-  if (!key) return "—";
+  if (!key) return "-";
   return dict[locale]?.[key] ?? dict.en[key] ?? key;
 }
 
@@ -194,7 +194,7 @@ export function labelizeAsset(
   id: string | null | undefined,
   locale: Locale = "en",
 ): string {
-  if (!id) return "—";
+  if (!id) return "-";
   const specific = getAssetLabel(gender ?? null, axis, id);
   if (specific) return specific;
   const dict =

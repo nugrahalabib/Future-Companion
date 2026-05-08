@@ -302,7 +302,7 @@ export default function RespondentsPage() {
                           <span className="text-text-muted text-[11px]">{r.email}</span>
                         )}
                         <span className="text-text-muted text-[11px]">
-                          {ageToRangeLabel(r.age)} · {r.profession || "—"}
+                          {ageToRangeLabel(r.age)} · {r.profession || "-"}
                         </span>
                       </div>
                     </Td>
@@ -319,7 +319,7 @@ export default function RespondentsPage() {
                         )}
                         <div className="flex flex-col">
                           <span className="text-text-primary truncate max-w-[160px]">
-                            {r.companion?.companionName || "—"}
+                            {r.companion?.companionName || "-"}
                           </span>
                           <span className="text-text-muted text-[11px]">
                             {labelize(GENDER_LABEL, r.companion?.gender, locale)}
@@ -365,7 +365,7 @@ export default function RespondentsPage() {
                         </div>
                       )}
                     </Td>
-                    <Td>{r.experience != null ? `${r.experience}/5` : "—"}</Td>
+                    <Td>{r.experience != null ? `${r.experience}/5` : "-"}</Td>
                     <Td>
                       {r.nps != null ? (
                         <span
@@ -380,14 +380,14 @@ export default function RespondentsPage() {
                           {r.nps}
                         </span>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </Td>
-                    <Td>{r.purchaseIntent != null ? `${r.purchaseIntent}/5` : "—"}</Td>
+                    <Td>{r.purchaseIntent != null ? `${r.purchaseIntent}/5` : "-"}</Td>
                     <Td>
                       {r.encounterDuration != null
                         ? `${Math.floor(r.encounterDuration / 60)}m ${r.encounterDuration % 60}s`
-                        : "—"}
+                        : "-"}
                     </Td>
                     <Td>{r.transcriptCount}</Td>
                     <Td>
@@ -630,7 +630,7 @@ function FilterPanel({
       </div>
       <div>
         <FilterLabel>
-          {t("admin.resp.filter.experience.min")} – {t("admin.resp.filter.experience.max")}
+          {t("admin.resp.filter.experience.min")} - {t("admin.resp.filter.experience.max")}
         </FilterLabel>
         <div className="flex items-center gap-2 mt-1.5">
           <NumInput
@@ -638,7 +638,7 @@ function FilterPanel({
             onChange={(n) => onChange({ experienceMin: n })}
             placeholder={t("admin.resp.filter.experience.min")}
           />
-          <span className="text-text-muted">–</span>
+          <span className="text-text-muted">-</span>
           <NumInput
             value={filter.experienceMax}
             onChange={(n) => onChange({ experienceMax: n })}
@@ -648,7 +648,7 @@ function FilterPanel({
       </div>
       <div>
         <FilterLabel>
-          {t("admin.resp.filter.date.from")} – {t("admin.resp.filter.date.to")}
+          {t("admin.resp.filter.date.from")} - {t("admin.resp.filter.date.to")}
         </FilterLabel>
         <div className="flex items-center gap-2 mt-1.5">
           <input

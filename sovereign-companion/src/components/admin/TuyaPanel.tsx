@@ -463,7 +463,7 @@ function DeviceRow({
                 onChange={(e) => setColor(e.target.value)}
                 className="bg-obsidian-surface border border-glass-border rounded-lg px-3 py-1.5 text-[12px] text-text-primary focus:outline-none focus:border-cyan-accent/40"
               >
-                <option value="">—</option>
+                <option value="">-</option>
                 {SUGGESTED_COLOR_NAMES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}

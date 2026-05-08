@@ -45,7 +45,7 @@ interface CachedToken {
 
 // Module-level cache. Refreshes proactively before expiry.
 let tokenCache: CachedToken | null = null;
-let tokenCacheKey = ""; // accessId|region — busts when admin rotates creds
+let tokenCacheKey = ""; // accessId|region, busts when admin rotates creds
 
 function endpointFor(region: TuyaRegion): string {
   return REGION_ENDPOINTS[region] ?? REGION_ENDPOINTS.us;

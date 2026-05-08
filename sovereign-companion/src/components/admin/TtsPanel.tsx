@@ -34,7 +34,7 @@ const HISTORY_LIMIT = 8;
 
 function formatVoiceLabel(v: TtsVoice): string {
   const vibeIcon = v.vibe === "feminine" ? "♀" : v.vibe === "masculine" ? "♂" : "◇";
-  return `${vibeIcon}  ${v.name} — ${v.tone}`;
+  return `${vibeIcon}  ${v.name}, ${v.tone}`;
 }
 
 export default function TtsPanel() {
@@ -257,7 +257,7 @@ export default function TtsPanel() {
             >
               {MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.label} — {m.hint}
+                  {m.label}, {m.hint}
                 </option>
               ))}
             </select>
@@ -336,14 +336,14 @@ export default function TtsPanel() {
                 <optgroup label={t("admin.tts.languageGroup.prominent")}>
                   {TTS_LANGUAGES.filter((l) => l.prominent).map((l) => (
                     <option key={l.code} value={l.code}>
-                      {l.englishName}{l.nativeName ? ` (${l.nativeName})` : ""} — {l.code}
+                      {l.englishName}{l.nativeName ? ` (${l.nativeName})` : ""}, {l.code}
                     </option>
                   ))}
                 </optgroup>
                 <optgroup label={t("admin.tts.languageGroup.others")}>
                   {TTS_LANGUAGES.filter((l) => !l.prominent).map((l) => (
                     <option key={l.code} value={l.code}>
-                      {l.englishName}{l.nativeName ? ` (${l.nativeName})` : ""} — {l.code}
+                      {l.englishName}{l.nativeName ? ` (${l.nativeName})` : ""}, {l.code}
                     </option>
                   ))}
                 </optgroup>

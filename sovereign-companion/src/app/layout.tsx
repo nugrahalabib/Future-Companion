@@ -17,7 +17,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "The Sovereign Companion | 2076",
+  title: "The Sovereign Companion | 2075",
   description:
     "Design your ultimate reality. The future of companionship, engineered to perfection.",
 };

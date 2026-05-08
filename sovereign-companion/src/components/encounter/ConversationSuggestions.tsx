@@ -121,8 +121,8 @@ export default function ConversationSuggestions({
         </span>
         <span className="text-[13px] text-text-muted leading-relaxed">
           {locale === "en"
-            ? "Tap one — she'll respond right away."
-            : "Tap salah satu — dia langsung balas."}
+            ? "Tap one, she'll respond right away."
+            : "Tap salah satu, dia langsung balas."}
         </span>
       </div>
 

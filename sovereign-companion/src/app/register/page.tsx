@@ -14,7 +14,7 @@ import { useCompanionStore, type UserGender } from "@/stores/useCompanionStore";
 import { useLocaleStore } from "@/stores/useLocaleStore";
 import { useT } from "@/lib/i18n/useT";
 import {
-  PROFESSIONS_2076,
+  PROFESSIONS_2075,
   PROFESSION_SECTORS,
   PROFESSION_SECTOR_LABEL_KEY,
 } from "@/lib/professions";
@@ -514,7 +514,7 @@ export default function RegisterPage() {
                               {t("register.field.profession.placeholder")}
                             </option>
                             {PROFESSION_SECTORS.map((sector) => {
-                              const items = PROFESSIONS_2076.filter((p) => p.sector === sector);
+                              const items = PROFESSIONS_2075.filter((p) => p.sector === sector);
                               if (items.length === 0) return null;
                               return (
                                 <optgroup key={sector} label={t(PROFESSION_SECTOR_LABEL_KEY[sector])}>
@@ -621,7 +621,7 @@ export default function RegisterPage() {
                         </div>
                       </div>
 
-                      {/* User nicknames — multi-select up to 3 */}
+                      {/* User nicknames, multi-select up to 3 */}
                       <div>
                         <label className={labelClass}>
                           {t("register.bond.userNickname.label")} <span className="text-cyan-accent">*</span>
@@ -724,7 +724,7 @@ export default function RegisterPage() {
                           disabled={form.userNicknames.length >= MAX_NICKNAMES}
                         />
 
-                        {/* Combined preview — Pet + user's own nickname */}
+                        {/* Combined preview, Pet + user's own nickname */}
                         {form.userNicknames.length > 0 && form.nickname.trim() && (
                           <div className="mt-3 rounded-xl border border-bio-green/30 bg-bio-green/[0.06] px-3 py-2.5">
                             <div className="font-display text-[9px] uppercase tracking-[0.28em] text-bio-green/80">
@@ -872,7 +872,7 @@ export default function RegisterPage() {
           </motion.div>
         </GlassPanel>
 
-        {/* Data-use badge — visible notice for exhibition visitors */}
+        {/* Data-use badge, visible notice for exhibition visitors */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

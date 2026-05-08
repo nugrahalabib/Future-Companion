@@ -30,7 +30,7 @@ function summarizeArgs(ev: ToolEvent): string {
     const city = (ev.result.city as string) ?? (ev.args.city as string);
     const temp = ev.result.tempC as number | undefined;
     const summary = ev.result.summary as string | undefined;
-    return `${city ?? "—"} · ${temp ?? "?"}°C · ${summary ?? ""}`;
+    return `${city ?? "-"} · ${temp ?? "?"}°C · ${summary ?? ""}`;
   }
   return "";
 }

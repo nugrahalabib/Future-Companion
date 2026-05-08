@@ -164,7 +164,7 @@ export default function AdminSettingsPage() {
             </p>
             <p className="font-display text-2xl font-bold mt-1">{reasonLabel}</p>
             <p className="text-xs text-text-muted mt-2">
-              {t("admin.settings.lastUpdated", { at: updatedAtLabel || "—" })}
+              {t("admin.settings.lastUpdated", { at: updatedAtLabel || "-" })}
             </p>
           </div>
           <div className={`text-[10px] font-display uppercase tracking-widest px-3 py-1.5 rounded-full border ${status.active ? "border-bio-green/40" : "border-danger/40"}`}>

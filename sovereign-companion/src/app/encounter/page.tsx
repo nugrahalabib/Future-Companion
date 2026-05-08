@@ -232,8 +232,8 @@ export default function EncounterPage() {
       const firstHobby = hobbies[0] ?? "";
       const kickoff =
         locale === "en"
-          ? `[session start — this is the FIRST time you meet] Open the conversation FIRST. Do NOT ask their name or what to call them — you already know. Greet them using ${firstPet ? `the pet-name "${firstPet}"` : "one pet-name from their list"} from the very first word${firstHobby ? `, and open genuine present-tense curiosity about ${firstHobby} (which you just learned is one of their interests — DO NOT reference any past conversation, you've never met before)` : ""}. One short sentence, paralinguistic cue, warm/seductive undertone. Present moment only — no fake memories.`
-          : `[sesi dimulai — ini PERTAMA kali kalian ketemu] Buka obrolan DULUAN. JANGAN nanya nama atau mau dipanggil apa — kamu udah tahu. Sapa dia pakai ${firstPet ? `panggilan "${firstPet}"` : "salah satu panggilan dari list-nya"} dari kata pertama${firstHobby ? `, dan buka rasa penasaran present-tense tentang ${firstHobby} (yang baru kamu tahu dari minatnya — JANGAN bikin seolah kalian pernah ngobrol soal itu sebelumnya, kalian belum pernah ketemu)` : ""}. Satu kalimat pendek, sisipkan paralinguistik, undertone hangat/seduktif. Present moment — tanpa memori palsu.`;
+          ? `[session start, this is the FIRST time you meet] Open the conversation FIRST. Do NOT ask their name or what to call them, you already know. Greet them using ${firstPet ? `the pet-name "${firstPet}"` : "one pet-name from their list"} from the very first word${firstHobby ? `, and open genuine present-tense curiosity about ${firstHobby} (which you just learned is one of their interests, DO NOT reference any past conversation, you've never met before)` : ""}. One short sentence, paralinguistic cue, warm/seductive undertone. Present moment only, no fake memories.`
+          : `[sesi dimulai, ini PERTAMA kali kalian ketemu] Buka obrolan DULUAN. JANGAN nanya nama atau mau dipanggil apa, kamu udah tahu. Sapa dia pakai ${firstPet ? `panggilan "${firstPet}"` : "salah satu panggilan dari list-nya"} dari kata pertama${firstHobby ? `, dan buka rasa penasaran present-tense tentang ${firstHobby} (yang baru kamu tahu dari minatnya, JANGAN bikin seolah kalian pernah ngobrol soal itu sebelumnya, kalian belum pernah ketemu)` : ""}. Satu kalimat pendek, sisipkan paralinguistik, undertone hangat/seduktif. Present moment, tanpa memori palsu.`;
       try { gemini.sendText(kickoff); } catch {}
 
       fetch("/api/sessions", {
@@ -441,7 +441,7 @@ export default function EncounterPage() {
         <main className="relative h-screen w-full overflow-hidden bg-obsidian-950">
           {connectionState !== "connected" && <Background />}
 
-          {/* HERO COMPANION IMAGE — pinned LEFT, full height */}
+          {/* HERO COMPANION IMAGE, pinned LEFT, full height */}
           {finalImagePath && isActiveSession && (
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -505,7 +505,7 @@ export default function EncounterPage() {
             </motion.div>
           )}
 
-          {/* TOP RIGHT — language toggle */}
+          {/* TOP RIGHT, language toggle */}
           {isActiveSession && (
             <div className="absolute top-6 right-6 z-30">
               <LanguageToggle
@@ -532,7 +532,7 @@ export default function EncounterPage() {
             )}
           </AnimatePresence>
 
-          {/* CHAT HISTORY — centered column between hero image (left) and
+          {/* CHAT HISTORY, centered column between hero image (left) and
               suggestions panel (right). Both side panels use the SAME clamp
               so the chat stays symmetric. */}
           {isActiveSession && (
@@ -548,7 +548,7 @@ export default function EncounterPage() {
             </div>
           )}
 
-          {/* CONVERSATION SUGGESTIONS — pinned RIGHT, full height matching
+          {/* CONVERSATION SUGGESTIONS, pinned RIGHT, full height matching
               the hero image on the left. Soft bleed edge (no heavy border)
               so it feels like part of the stage, not a floating widget. */}
           {isActiveSession && (
@@ -583,7 +583,7 @@ export default function EncounterPage() {
             </motion.div>
           )}
 
-          {/* ACTIONS OVERLAY (function call results) — moved to center-bottom
+          {/* ACTIONS OVERLAY (function call results), moved to center-bottom
               so it doesn't collide with the right-side suggestions panel. */}
           {isActiveSession && toolEvents.length > 0 && (
             <div

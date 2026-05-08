@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { getDemoStatus } from "@/lib/demoMode";
 import { isValidAgeLowerBound } from "@/lib/ageRanges";
-import { isValid2076Profession } from "@/lib/professions";
+import { isValid2075Profession } from "@/lib/professions";
 
 export async function GET(req: NextRequest) {
   const email = req.nextUrl.searchParams.get("email");
@@ -134,10 +134,10 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Invalid age range" }, { status: 400 });
   }
 
-  // Profession must be one of the curated 2076 jobs. Free-form input is
+  // Profession must be one of the curated 2075 jobs. Free-form input is
   // no longer accepted to keep the dataset on-narrative for the
   // exhibition.
-  if (!isValid2076Profession(profession)) {
+  if (!isValid2075Profession(profession)) {
     return Response.json({ error: "Invalid profession" }, { status: 400 });
   }
 

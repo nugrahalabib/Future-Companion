@@ -73,7 +73,7 @@ export default function FarewellPage() {
           transition={{ duration: 0.7 }}
           className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-5"
         >
-          {/* Left — QR panel */}
+          {/* Left, QR panel */}
           <GlassPanel variant="elevated" className="p-8 flex flex-col items-center text-center">
             <motion.span
               initial={{ opacity: 0, scale: 0.8 }}
@@ -106,7 +106,7 @@ export default function FarewellPage() {
               {t("farewell.qrHint")}
             </p>
 
-            {/* QR — cyan-on-obsidian, framed to feel like the neuro-sigil from
+            {/* QR, cyan-on-obsidian, framed to feel like the neuro-sigil from
                 checkout so the visual language stays consistent. */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -138,7 +138,7 @@ export default function FarewellPage() {
             </div>
           </GlassPanel>
 
-          {/* Right — gift + controls */}
+          {/* Right, gift + controls */}
           <div className="flex flex-col gap-5">
             <GlassPanel variant="default" className="p-6 space-y-3">
               <div className="flex items-center gap-2">

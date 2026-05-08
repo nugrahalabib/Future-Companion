@@ -1,7 +1,7 @@
 /**
  * Profession dropdown for the registration form. The exhibition is set
- * in 2076, so we drop the present-day "Software Engineer / Doctor /
- * Teacher" list in favour of fictional 2076-era jobs that match the
+ * in 2075, so we drop the present-day "Software Engineer / Doctor /
+ * Teacher" list in favour of fictional 2075-era jobs that match the
  * narrative. Bilingual labels (English + Bahasa Indonesia) are surfaced
  * via the `labelKey` so the dropdown adapts to the active locale.
  *
@@ -30,7 +30,7 @@ export interface Profession {
     | "post-work";
 }
 
-export const PROFESSIONS_2076: readonly Profession[] = [
+export const PROFESSIONS_2075: readonly Profession[] = [
   // ----- Synthetic Companion industry -----
   { value: "Synthetic Empathy Architect",  labelKey: "register.profession.empathyArchitect",   sector: "synthetic-companion" },
   { value: "Companion Persona Designer",   labelKey: "register.profession.personaDesigner",    sector: "synthetic-companion" },
@@ -69,9 +69,9 @@ export const PROFESSIONS_2076: readonly Profession[] = [
   { value: "Unspecified Citizen",          labelKey: "register.profession.unspecified",        sector: "post-work" },
 ];
 
-export const PROFESSION_VALUES = PROFESSIONS_2076.map((p) => p.value) as readonly string[];
+export const PROFESSION_VALUES = PROFESSIONS_2075.map((p) => p.value) as readonly string[];
 
-export function isValid2076Profession(value: string): boolean {
+export function isValid2075Profession(value: string): boolean {
   return PROFESSION_VALUES.includes(value);
 }
 

@@ -192,7 +192,7 @@ export default function TranscriptsPage() {
                     <span>
                       {row.durationSec != null
                         ? `${Math.floor(row.durationSec / 60)}:${String(row.durationSec % 60).padStart(2, "0")}`
-                        : "—"}
+                        : "-"}
                     </span>
                   </div>
                   {row.preview && (
@@ -229,7 +229,7 @@ export default function TranscriptsPage() {
                   </h3>
                   <p className="text-[11px] text-text-muted">
                     {detail.user.email} · {ageToRangeLabel(detail.user.age)} ·{" "}
-                    {detail.user.profession || "—"}
+                    {detail.user.profession || "-"}
                   </p>
                   {detail.companion && (
                     <p className="text-[11px] text-text-muted mt-0.5">

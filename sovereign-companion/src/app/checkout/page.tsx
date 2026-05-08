@@ -140,7 +140,7 @@ export default function CheckoutPage() {
                 </p>
 
                 {/* Neuro-sigil (future-QR). Animated authorization glyph that
-                    reads as "scan-to-pay" for the 2076 setting. */}
+                    reads as "scan-to-pay" for the 2075 setting. */}
                 <div className="flex justify-center py-4">
                   <NeuroSigil seed={sigilSeed} size={220} />
                 </div>
@@ -148,7 +148,7 @@ export default function CheckoutPage() {
                   {t("checkout.qr")}
                 </p>
 
-                {/* Address — auto-located by fake satellite mesh, then
+                {/* Address, auto-located by fake satellite mesh, then
                     typewritten into the field. User can still edit. */}
                 <div className="text-left">
                   <label className="block text-xs text-text-secondary mb-1.5 uppercase tracking-wider">
@@ -219,7 +219,7 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* Guardianship terms — minimal, demo-friendly. Sits between
+                {/* Guardianship terms, minimal, demo-friendly. Sits between
                     the address block and the CTA so the user reads it just
                     before authorizing. Subtle styling (muted text, low border
                     weight) so it doesn't compete with the primary action. */}

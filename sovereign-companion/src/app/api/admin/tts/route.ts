@@ -228,7 +228,7 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           error:
-            "model returned no audio (likely text-token regression — try regenerating, or simplify the prompt)",
+            "model returned no audio (likely text-token regression, try regenerating, or simplify the prompt)",
         },
         { status: 502 },
       );

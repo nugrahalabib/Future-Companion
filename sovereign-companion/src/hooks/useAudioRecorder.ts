@@ -73,7 +73,7 @@ export function useAudioRecorder({ onAudioChunk }: UseAudioRecorderOptions) {
           workletNodeRef.current = node;
           usedWorklet = true;
         } catch (err) {
-          console.warn("AudioWorklet unavailable — falling back to ScriptProcessor", err);
+          console.warn("AudioWorklet unavailable, falling back to ScriptProcessor", err);
         }
       }
 
