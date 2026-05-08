@@ -26,7 +26,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+# Install prisma CLI globally so the entrypoint can run
+# `prisma migrate deploy` at container startup. Trying to copy
+# /app/node_modules/prisma alone fails because the CLI pulls in
+# transitive deps (`effect`, `@prisma/config`, ...) that the slim
+# standalone tree omits. A global install sidesteps the missing-
+# module dance and adds ~25MB to the image, which is fine.
+RUN npm install -g prisma@6.19.3
 COPY docker-entrypoint.sh ./
 USER nextjs
 EXPOSE 2970
