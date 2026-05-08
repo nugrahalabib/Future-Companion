@@ -4,8 +4,6 @@ import { getDemoStatus } from "@/lib/demoMode";
 import { prisma } from "@/lib/prisma";
 import { buildSystemPrompt, type CompanionConfig } from "@/lib/systemPromptBuilder";
 import { loadOverrides } from "@/lib/systemPromptOverrides";
-import { listDeviceNamesForAi } from "@/lib/tuya/manager";
-import { COMPANION_FUNCTION_DECLARATIONS } from "@/lib/companionTools";
 
 // Per-IP token-bucket rate limit. Ephemeral tokens are single-use and short-
 // lived, but the mint call still counts toward Gemini quota and each minted
@@ -139,19 +137,7 @@ export async function POST(req: NextRequest) {
   if (rebuildConfig) {
     try {
       const overrides = await loadOverrides();
-      // Load Tuya devices server-side so the prompt contains a fresh device
-      // inventory at mint time. Failures here must not block the encounter —
-      // fall back to an empty list so the smart-home block degrades gracefully.
-      let deviceList = "";
-      try {
-        const deviceNames = await listDeviceNamesForAi();
-        deviceList = deviceNames.length
-          ? deviceNames.map((n) => `- ${n}`).join("\n")
-          : "";
-      } catch (err) {
-        console.warn("[gemini-token] device list load failed:", err);
-      }
-      systemPrompt = buildSystemPrompt(rebuildConfig, rebuildLocale, overrides, { deviceList });
+      systemPrompt = buildSystemPrompt(rebuildConfig, rebuildLocale, overrides);
     } catch (err) {
       console.warn("[gemini-token] override load/build failed, using client prompt:", err);
     }
@@ -179,20 +165,6 @@ export async function POST(req: NextRequest) {
       speechConfig,
       inputAudioTranscription: {},
       outputAudioTranscription: {},
-      // CRITICAL — tools MUST be locked into the ephemeral token.
-      // Per https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens
-      // anything the client sends that isn't in the constraint is dropped
-      // server-side. If we don't lock function declarations here, the
-      // browser-bound session has zero tools and the model can never fire
-      // control_smart_home / list_smart_devices / query_smart_home no
-      // matter how aggressively the system prompt nudges it.
-      tools: [{ functionDeclarations: COMPANION_FUNCTION_DECLARATIONS }],
-      // Be explicit: AUTO mode lets the model decide when to call. (Default
-      // is already AUTO but we pin it to immunize against future SDK
-      // changes that flip the default.)
-      toolConfig: {
-        functionCallingConfig: { mode: "AUTO" },
-      },
     };
     if (systemPrompt) {
       lockedConfig.systemInstruction = { parts: [{ text: systemPrompt }] };
@@ -202,15 +174,12 @@ export async function POST(req: NextRequest) {
     // small-talk companion demo that extra latency is audible.
     //  - 3.1 flash-live uses `thinkingLevel` ("minimal" | "low" | "medium" | "high"),
     //    default is already "minimal" — we pin it explicitly to be safe.
-    //  - 2.5 native-audio uses `thinkingBudget` (token count). Setting it
-    //    to a small budget (256) gives the model just enough room to plan
-    //    a tool call when the conversation context demands it. Setting it
-    //    to 0 disables thinking entirely, which we found makes the model
-    //    skip tool calls even when the system prompt is explicit about it.
+    //  - 2.5 native-audio uses `thinkingBudget` (token count). Setting it to 0
+    //    disables thinking entirely so the model replies on the first token.
     if (model.includes("3.1")) {
       lockedConfig.thinkingConfig = { thinkingLevel: "minimal" };
     } else {
-      lockedConfig.thinkingConfig = { thinkingBudget: 256 };
+      lockedConfig.thinkingConfig = { thinkingBudget: 0 };
     }
 
     const token = await ai.authTokens.create({

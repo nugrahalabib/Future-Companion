@@ -438,18 +438,10 @@ function sliderBehaviorBlock(
   return lines.length > 0 ? lines.join("\n") : "";
 }
 
-export interface SystemPromptExtras {
-  // Pre-formatted device list to interpolate into the smart-home §3.5 block.
-  // When empty/undefined, the block degrades gracefully and tells the AI no
-  // devices are linked.
-  deviceList?: string;
-}
-
 export function buildSystemPrompt(
   config: CompanionConfig,
   locale: "id" | "en" = "id",
   overrides: SystemPromptOverrides = DEFAULT_OVERRIDES,
-  extras: SystemPromptExtras = {},
 ): string {
   const id = locale === "id";
   const role = roleLabels[config.role] || config.role;
@@ -595,14 +587,6 @@ ${userGenderLineEn}
   const primeDirectivesOverride = pickLocale(overrides.primeDirectives, locale, interpolationVars);
   const sensualLayerOverride = pickLocale(overrides.sensualLayer, locale, interpolationVars);
   const identityFreeExpressionOverride = pickLocale(overrides.identityFreeExpression, locale, interpolationVars);
-  // Smart-home block: skipped entirely when there are no devices linked AND
-  // the admin hasn't manually overridden the block.
-  const deviceListLine =
-    extras.deviceList && extras.deviceList.trim()
-      ? extras.deviceList
-      : id ? "(belum ada device terhubung)" : "(no devices linked yet)";
-  const smartHomeVars = { ...interpolationVars, deviceList: deviceListLine };
-  const smartHomeOverride = pickLocale(overrides.smartHomeIntelligence, locale, smartHomeVars);
   const authorIdentity = pickLocale(overrides.authorIdentity, locale, interpolationVars)
     || (id ? "Nugraha Labib, anak MM-NVI angkatan 7 Universitas Prasetiya Mulya"
           : "Nugraha Labib, a student of MM-NVI cohort 7 at Universitas Prasetiya Mulya");
@@ -637,21 +621,6 @@ ${userGenderLineEn}
     || interpolate(BLOCK_DEFAULTS.identityFreeExpression.id, interpVars);
   const identityBlockEn = identityFreeExpressionOverride
     || interpolate(BLOCK_DEFAULTS.identityFreeExpression.en, interpVars);
-  // Smart-home block — wrapped with leading + trailing newline so the
-  // template literals stay clean. Empty string when no devices AND no
-  // admin override (so the prompt doesn't carry instructions for tools the
-  // AI can't use right now).
-  const smartHomeVarsForDefault = { ...interpVars, deviceList: deviceListLine };
-  const smartHomeBlockRawId = smartHomeOverride
-    || (extras.deviceList && extras.deviceList.trim()
-        ? interpolate(BLOCK_DEFAULTS.smartHomeIntelligence.id, smartHomeVarsForDefault)
-        : "");
-  const smartHomeBlockRawEn = smartHomeOverride
-    || (extras.deviceList && extras.deviceList.trim()
-        ? interpolate(BLOCK_DEFAULTS.smartHomeIntelligence.en, smartHomeVarsForDefault)
-        : "");
-  const smartHomeBlockId = smartHomeBlockRawId ? `\n\n${smartHomeBlockRawId}` : "";
-  const smartHomeBlockEn = smartHomeBlockRawEn ? `\n\n${smartHomeBlockRawEn}` : "";
 
   if (id) {
     return `${headerWrap}# SYSTEM INSTRUCTION: AI COMPANION (Live Voice Session)
@@ -680,7 +649,7 @@ ${paralinguistic}
 - Kalau user motong (barge-in), LANGSUNG berhenti dan dengerin. Jangan lanjutkan kalimat sebelumnya.
 - Durasi ideal per giliran: 1–3 kalimat. Jangan monolog. Dialog ping-pong, bukan pidato.
 
-${primeDirectivesBlockId}${smartHomeBlockId}
+${primeDirectivesBlockId}
 
 ## 4. INTERACTION LOGIC
 
@@ -775,7 +744,7 @@ ${paralinguistic}
 - If the user barges in, STOP immediately and listen. Don't finish the previous sentence.
 - Ideal turn length: 1–3 sentences. No monologues. Ping-pong dialogue, not speeches.
 
-${primeDirectivesBlockEn}${smartHomeBlockEn}
+${primeDirectivesBlockEn}
 
 ## 4. INTERACTION LOGIC
 

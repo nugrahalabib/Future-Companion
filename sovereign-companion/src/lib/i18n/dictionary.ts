@@ -870,8 +870,6 @@ export const translations: Record<Locale, Dictionary> = {
     "admin.prompt.block.sensualLayer.desc": "Universal seductive undertone rules. Override REPLACES the whole §4.6 block.",
     "admin.prompt.block.identityFreeExpression.title": "§7 Identity & Free Expression",
     "admin.prompt.block.identityFreeExpression.desc": "Character lock + free-expression rules. Override REPLACES §7 entirely (including the author identity line).",
-    "admin.prompt.block.smartHomeIntelligence.title": "§3.5 Smart Home Intelligence",
-    "admin.prompt.block.smartHomeIntelligence.desc": "Authorizes proactive control of Tuya lights based on conversation mood. Override REPLACES the default block. Use {deviceList} to inject the live Tuya device inventory at mint time.",
     "admin.prompt.block.roleVibes.title": "Per-Role Vibe Blocks (§4)",
     "admin.prompt.block.roleVibes.desc": "Override the role-specific behavior block injected into §4 for each archetype.",
     // Form builder
@@ -2238,8 +2236,6 @@ export const translations: Record<Locale, Dictionary> = {
     "admin.prompt.block.sensualLayer.desc": "Aturan undertone seduktif universal. Override MENGGANTI seluruh blok §4.6.",
     "admin.prompt.block.identityFreeExpression.title": "§7 Identitas & Kebebasan Bicara",
     "admin.prompt.block.identityFreeExpression.desc": "Character lock + aturan free expression. Override MENGGANTI §7 sepenuhnya (termasuk baris author identity).",
-    "admin.prompt.block.smartHomeIntelligence.title": "§3.5 Kecerdasan Smart Home",
-    "admin.prompt.block.smartHomeIntelligence.desc": "Mengizinkan companion mengontrol lampu Tuya secara proaktif sesuai mood obrolan. Override MENGGANTI blok default. Pakai {deviceList} untuk menyisipkan daftar device Tuya yang sedang aktif saat token di-mint.",
     "admin.prompt.block.roleVibes.title": "Vibe Per Role (§4)",
     "admin.prompt.block.roleVibes.desc": "Override blok perilaku spesifik per arketip yang diinjeksi ke §4.",
     // Form builder
