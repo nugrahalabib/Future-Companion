@@ -6,13 +6,19 @@
 // confirmation it can verbalize. The remaining tools (set_reminder,
 // check_weather) are mock-only — kept around for demo color.
 
+// Function declarations for Gemini Live. The Type values MUST be UPPERCASE
+// (OBJECT/STRING/NUMBER/BOOLEAN/ARRAY) — that's what the @google/genai SDK
+// `Type` enum exports, and lowercase variants are silently dropped by the
+// schema validator before they reach the model. This was a real bug: with
+// lowercase types the tool list passed type-check but the model received
+// zero usable tools and never fired.
 export const COMPANION_FUNCTION_DECLARATIONS = [
   {
     name: "list_smart_devices",
     description:
       "List the owner's smart-home devices currently linked through Tuya Cloud. Call this once if you don't already know what devices exist before invoking control_smart_home. Returns an array of device names with capability hints (on/off, brightness, color).",
     parameters: {
-      type: "object",
+      type: "OBJECT",
       properties: {},
     },
   },
@@ -21,30 +27,30 @@ export const COMPANION_FUNCTION_DECLARATIONS = [
     description:
       "Adjust the owner's real smart-home lights through Tuya Cloud. Call this PROACTIVELY whenever the conversation's mood shifts — without waiting for an explicit command. Examples of when to fire (not exhaustive): topic turns intimate or romantic → red/passion, user is sad/heartbroken → calm blue dim, user wants to vent → warm cozy + turn off the bedside lamp, user is focusing/working → bright white, user is sleepy → very dim red, user is happy/celebrating → party vibrant, user starts a movie → dim or off. Composite scenes are encouraged: call this tool MULTIPLE TIMES in the same turn (e.g. 'lampu tidur' → off, then 'all lights' → warm dim). Verbalize the change as part of natural conversation, e.g. 'I'm shifting the lights to red so it feels more intimate' — never 'command executed'. You have FULL FREEDOM to pick the brightness and color that fits the moment; don't ask permission first.",
     parameters: {
-      type: "object",
+      type: "OBJECT",
       properties: {
         target: {
-          type: "string",
+          type: "STRING",
           description:
             "Device name exactly as listed in the device inventory (e.g. 'soft box 1', 'lampu meja', 'lampu tidur', 'lampu strip dinding'), OR a group keyword: 'all lights' / 'semua lampu' (every light), 'all' (every device). Partial substrings also match — e.g. 'lampu' matches every device with 'lampu' in its name.",
         },
         action: {
-          type: "string",
+          type: "STRING",
           description:
             "'on' | 'off' | 'set'. Use 'set' when you only want to change brightness/color/temperature without explicitly toggling power (the device is auto-turned-on first if it's off so the change is visible).",
         },
         brightness: {
-          type: "number",
+          type: "INTEGER",
           description:
             "Optional 0-100 percent brightness. Mid (40-60) for vent/calm, low (15-25) for sleep/movie, high (80-100) for focus/celebrate. Only meaningful for dimmable lights.",
         },
         color: {
-          type: "string",
+          type: "STRING",
           description:
             "Optional color name. Pure spectrum: red, orange, yellow, green, cyan, blue, purple, pink, white. Mood presets you should reach for first: 'red' or 'passion' or 'intimate' (intimate/romantic), 'warm' or 'cozy' (vent/cuddle/cold), 'calm' or 'sad' (sad/melancholy), 'focus' (work/study), 'sleep' or 'dim' (sleep/movie), 'party' (celebrate). Indonesian names accepted too (merah, biru, hangat, romantis, fokus, tidur, panas).",
         },
         temperature: {
-          type: "number",
+          type: "INTEGER",
           description:
             "Optional 0-100 color temperature where 0=warm and 100=cool. Only for lights that have a white-mode temp slider. Skip this when you're using `color` — pick one or the other.",
         },
@@ -57,10 +63,10 @@ export const COMPANION_FUNCTION_DECLARATIONS = [
     description:
       "Read current state of the owner's smart-home devices (on/off, brightness, color mode). Use to answer 'are the lights on?' / 'what color is the lamp?' / 'lampu mana yang nyala?'.",
     parameters: {
-      type: "object",
+      type: "OBJECT",
       properties: {
         target: {
-          type: "string",
+          type: "STRING",
           description:
             "Optional device name or group keyword. Omit to query everything.",
         },
@@ -72,11 +78,11 @@ export const COMPANION_FUNCTION_DECLARATIONS = [
     description:
       "Schedule a short reminder for the owner. Use when the user asks the companion to remind them of something during this session.",
     parameters: {
-      type: "object",
+      type: "OBJECT",
       properties: {
-        topic: { type: "string", description: "What to remind about." },
+        topic: { type: "STRING", description: "What to remind about." },
         inMinutes: {
-          type: "number",
+          type: "INTEGER",
           description: "How many minutes from now to deliver the reminder (1-120).",
         },
       },
@@ -88,9 +94,9 @@ export const COMPANION_FUNCTION_DECLARATIONS = [
     description:
       "Return a simulated weather snapshot for the owner's current city. Use when the user asks about the weather.",
     parameters: {
-      type: "object",
+      type: "OBJECT",
       properties: {
-        city: { type: "string", description: "Target city name." },
+        city: { type: "STRING", description: "Target city name." },
       },
       required: ["city"],
     },
