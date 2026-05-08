@@ -161,6 +161,50 @@ export default function TtsPanel() {
     a.click();
   };
 
+  // Track which history items have already been pushed to the welcome-
+  // audio library this session so the "Save" button can flip to a
+  // disabled "Saved ✓" state.
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+
+  const handleSaveToLibrary = async (item: HistoryItem) => {
+    if (savingIds.has(item.id) || savedIds.has(item.id)) return;
+    const proposed = item.text.trim().slice(0, 60) || `Welcome ${new Date(item.generatedAt).toLocaleTimeString()}`;
+    const name = window.prompt(t("admin.tts.history.saveAsPrompt"), proposed)?.trim();
+    if (!name) return;
+    setSavingIds((prev) => new Set(prev).add(item.id));
+    try {
+      const res = await adminFetch("/api/admin/welcome-audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          transcript: item.text,
+          mode: item.mode,
+          model: item.model,
+          voiceName: item.voiceName,
+          speakers: item.speakers,
+          audioDataUrl: item.audioDataUrl,
+          durationSeconds: item.durationSeconds,
+        }),
+      });
+      const data = (await res.json()) as { ok: boolean; error?: string };
+      if (!data.ok) {
+        setError(data.error ?? t("admin.tts.error.saveLibrary"));
+        return;
+      }
+      setSavedIds((prev) => new Set(prev).add(item.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  };
+
   const handleDeleteHistoryItem = (id: string) => {
     setHistory((prev) => prev.filter((h) => h.id !== id));
     if (activeAudioId === id) setActiveAudioId(null);
@@ -468,7 +512,25 @@ export default function TtsPanel() {
                     {item.durationSeconds.toFixed(2)}s
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveToLibrary(item)}
+                    disabled={savingIds.has(item.id) || savedIds.has(item.id)}
+                    className={`text-[10px] font-display uppercase tracking-widest border rounded-full px-2 py-0.5 cursor-pointer transition-colors ${
+                      savedIds.has(item.id)
+                        ? "border-bio-green/45 bg-bio-green/15 text-bio-green cursor-default"
+                        : savingIds.has(item.id)
+                          ? "border-glass-border bg-glass-bg/30 text-text-muted cursor-wait"
+                          : "border-bio-green/40 bg-bio-green/5 text-bio-green hover:bg-bio-green/15"
+                    }`}
+                  >
+                    {savedIds.has(item.id)
+                      ? t("admin.tts.history.savedToLibrary")
+                      : savingIds.has(item.id)
+                        ? t("admin.tts.history.saving")
+                        : t("admin.tts.history.saveToLibrary")}
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleDownload(item)}

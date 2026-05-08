@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import WelcomeListener from "@/components/WelcomeListener";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -33,6 +34,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-obsidian text-text-primary font-sans">
         <LanguageSwitcher />
+        <WelcomeListener />
         {children}
       </body>
     </html>
