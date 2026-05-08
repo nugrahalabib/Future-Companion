@@ -1,7 +1,12 @@
+# Builder needs the FULL dependency tree (Tailwind v4 + postcss live in
+# devDependencies and the Next.js production build cannot compile
+# globals.css without them). The runner stage stays slim because it
+# uses Next's standalone output, which bundles only what the server
+# actually needs at runtime.
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
 FROM node:22-alpine AS builder
 WORKDIR /app
