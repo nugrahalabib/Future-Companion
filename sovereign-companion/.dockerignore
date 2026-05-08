@@ -1,0 +1,38 @@
+# Anything we don't want copied into the build context. Keeps the
+# image lean and prevents secrets / PII from accidentally shipping.
+
+# Build / dependency artefacts
+node_modules
+.next
+out
+build
+
+# Local dev database journals — only the main dev.db file rides along
+# (so the welcome-audio library + Tuya config make it to prod). Journal
+# files belong to a running SQLite process and would corrupt if shipped.
+prisma/dev.db-journal
+prisma/dev.db-wal
+prisma/dev.db-shm
+
+# Secrets — server reads from runtime env vars, never bundled.
+.env
+.env.local
+.env.production
+.env.development
+
+# Editor / OS noise
+.vscode
+.idea
+.DS_Store
+*.swp
+
+# Git metadata
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Test / coverage
+coverage
+*.log
