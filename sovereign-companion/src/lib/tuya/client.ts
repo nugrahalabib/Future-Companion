@@ -1,14 +1,19 @@
 /**
  * Tuya Cloud REST client.
  *
- * Implements Tuya's HMAC-SHA256 signature scheme directly with Node's
- * `crypto` so we don't pull in a Python-shaped Tuya SDK. Two flavors of
- * signature exist:
+ * Implements Tuya's "new sign algorithm" (post-2021) directly with Node's
+ * `crypto` so we don't pull in a Python-shaped Tuya SDK. Algorithm matches
+ * tinytuya's reference implementation byte-for-byte:
  *
- *   1. Pre-token (token request itself): sign = client_id + t + nonce + str
- *   2. Authenticated (every other call): sign = client_id + access_token + t + nonce + str
+ *   payload = client_id + [access_token] + t + stringToSign
+ *   stringToSign = HTTPMethod \n SHA256(body) \n signed_headers \n url
+ *   sign = HMAC_SHA256(payload, secret).upper()
  *
- * `str` is always:  HTTP_METHOD \n SHA256(body) \n signed_headers \n url
+ * Note: Tuya's docs mention an optional `nonce` slot in the payload, but the
+ * cloud actually rejects calls that include nonce in the signing string
+ * unless it's also declared via `Signature-Headers` — easier to omit it
+ * entirely (as tinytuya does). The `signed_headers` block is empty for our
+ * calls since we don't pass any headers via Signature-Headers.
  *
  * Tokens are cached in-process for 90% of their TTL — the `expire_time`
  * Tuya returns is in seconds. Single-tenant booth deploy so a singleton
@@ -70,10 +75,6 @@ function nowMs(): number {
   return Date.now();
 }
 
-function nonce(): string {
-  return crypto.randomUUID();
-}
-
 interface InternalRequestOptions {
   credentials: TuyaCredentials;
   method: "GET" | "POST" | "PUT" | "DELETE";
@@ -91,13 +92,14 @@ async function rawRequest<T>(
   const url = `${endpointFor(credentials.region)}${path}`;
   const bodyStr = body ? JSON.stringify(body) : "";
   const t = nowMs().toString();
-  const n = nonce();
   const stringToSign = buildStringToSign(method, bodyStr, path);
 
-  // Different sign formula for token request vs authenticated calls.
+  // Sign formula matches tinytuya exactly (no nonce):
+  //   pre-auth:  apiKey + t + stringToSign
+  //   authed:    apiKey + token + t + stringToSign
   const signSource = opts.preAuth
-    ? `${credentials.accessId}${t}${n}${stringToSign}`
-    : `${credentials.accessId}${accessTokenOverride ?? ""}${t}${n}${stringToSign}`;
+    ? `${credentials.accessId}${t}${stringToSign}`
+    : `${credentials.accessId}${accessTokenOverride ?? ""}${t}${stringToSign}`;
 
   const sign = hmacSha256Upper(signSource, credentials.accessSecret);
 
@@ -106,7 +108,6 @@ async function rawRequest<T>(
     "sign": sign,
     "sign_method": "HMAC-SHA256",
     "t": t,
-    "nonce": n,
     "Content-Type": "application/json",
   };
   if (!opts.preAuth && accessTokenOverride) {
