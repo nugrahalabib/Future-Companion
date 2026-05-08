@@ -377,6 +377,7 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
 
   for (const dev of targets) {
     let firstFailure: string | undefined;
+    let commandsSent = 0;
     const stepFailed = (msg?: string) => {
       if (msg && !firstFailure) firstFailure = msg;
     };
@@ -385,6 +386,7 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
     //    / color land on a powered device.
     if ((isExplicitOn || shouldAutoTurnOn) && dev.switchCode) {
       const r = await sendOne(dev.id, dev.switchCode, true, ["true", 1, "1"]);
+      commandsSent++;
       if (!r.ok) stepFailed(r.msg);
       // Tinytuya sleeps 0.3s here; we skip the sleep — Tuya cloud is fast
       // enough that subsequent commands queue correctly without it.
@@ -396,6 +398,7 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
       if (isWhiteMode(args.color)) {
         if (modeCode) {
           const r = await sendOne(dev.id, modeCode, "white");
+          commandsSent++;
           if (!r.ok) stepFailed(r.msg);
         }
       } else {
@@ -404,12 +407,14 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
         if (canonical && colorCode) {
           if (modeCode) {
             const r = await sendOne(dev.id, modeCode, "colour");
+            commandsSent++;
             if (!r.ok) stepFailed(r.msg);
           }
           const scale = colorScaleFor(dev.capabilities, colorCode);
           const hsv = scaleHsv(canonical, scale);
           // Try dict, fall back to JSON-string (some Tuya bulbs reject one form).
           const r = await sendOne(dev.id, colorCode, hsv, [JSON.stringify(hsv)]);
+          commandsSent++;
           if (!r.ok) stepFailed(r.msg);
         }
       }
@@ -424,6 +429,7 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
         const pct = Math.max(0, Math.min(100, args.brightness));
         const scaled = Math.round(range.min + (pct / 100) * (range.max - range.min));
         const r = await sendOne(dev.id, bcode, scaled);
+        commandsSent++;
         if (!r.ok) stepFailed(r.msg);
       }
     }
@@ -437,6 +443,7 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
         const pct = Math.max(0, Math.min(100, args.temperature));
         const scaled = Math.round(range.min + (pct / 100) * (range.max - range.min));
         const r = await sendOne(dev.id, tcode, scaled);
+        commandsSent++;
         if (!r.ok) stepFailed(r.msg);
       }
     }
@@ -444,14 +451,21 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
     // 5) Explicit off — last so "off" calls don't fight any prior settings.
     if (isExplicitOff && dev.switchCode) {
       const r = await sendOne(dev.id, dev.switchCode, false, ["false", 0, "0"]);
+      commandsSent++;
       if (!r.ok) stepFailed(r.msg);
     }
 
-    // Were any commands actually sent for this device?
-    const didAnything =
-      isExplicitOn || isExplicitOff || shouldAutoTurnOn || wantsAttributeChange;
-    if (!didAnything) {
-      results.push({ device: dev.name, ok: false, msg: "No applicable commands for this device" });
+    // Were any commands actually sent for this device? A device with no
+    // switch_code (e.g. an IR blaster) and an "on" request lands here with
+    // commandsSent=0 — surface that as a failure instead of silent success.
+    if (commandsSent === 0) {
+      results.push({
+        device: dev.name,
+        ok: false,
+        msg: dev.switchCode
+          ? "No applicable commands for this device"
+          : `${dev.name} has no controllable on/off — use the device's native app`,
+      });
       continue;
     }
 
