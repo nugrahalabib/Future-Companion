@@ -30,11 +30,22 @@ import type {
 // instead of hard-coding switch_led.
 // ---------------------------------------------------------------------------
 
-const SWITCH_CODES = ["switch_led", "switch", "switch_1", "led_switch"];
-const BRIGHTNESS_CODES = ["bright_value", "bright_value_v2", "bright_value_1"];
-const COLOR_CODES = ["colour_data", "colour_data_v2", "colour_data_hsv"];
-const TEMP_K_CODES = ["temp_value", "temp_value_v2", "temp_value_1"];
-const MODE_CODES = ["work_mode"];
+// Switch / brightness / color code priority lists — matches tinytuya's
+// ordering. The first capability the device exposes from each list wins.
+const SWITCH_CODES = [
+  "switch_led", "switch_1", "switch", "power", "Power",
+  "power_go", "start", "basic_power", "switch_2", "switch_3", "switch_4",
+  "led_switch",
+];
+const BRIGHTNESS_CODES = ["bright_value_v2", "bright_value", "brightness", "bright_value_1"];
+const COLOR_CODES = ["colour_data_v2", "colour_data", "colour_data_hsv"];
+const TEMP_K_CODES = ["temp_value_v2", "temp_value", "temp_value_1"];
+const MODE_CODES = ["work_mode", "mode"];
+
+// Tuya category codes treated as "lights" for group resolution. Mirrors
+// the CATEGORY_MAP in Shila's skill: dj=bulb, dd=strip, fwd=floodlight,
+// xdd=dimmer/strip variants.
+const LIGHT_CATEGORIES = new Set(["dj", "dd", "fwd", "xdd"]);
 
 function detectCode(caps: TuyaCapability[], candidates: readonly string[]): string | null {
   for (const c of caps) {
@@ -57,6 +68,42 @@ function parseRange(values: string): { min: number; max: number } | null {
     // ignore
   }
   return null;
+}
+
+// Per-device colour_data scale. Some bulbs use s/v max=255 (e.g. lampu meja)
+// while others use 1000 (e.g. LED strip). Read the actual range from the
+// device spec instead of guessing from the code suffix — Shila's cache shows
+// `colour_data` (no v2) on a strip with 1000 scale, so suffix detection is
+// unreliable.
+function colorScaleFor(caps: TuyaCapability[], colorCode: string): { sMax: number; vMax: number } {
+  const spec = caps.find((c) => c.code === colorCode);
+  if (spec) {
+    try {
+      const parsed = JSON.parse(spec.values) as {
+        s?: { max?: number };
+        v?: { max?: number };
+      };
+      const sMax = parsed?.s?.max;
+      const vMax = parsed?.v?.max;
+      if (typeof sMax === "number" && typeof vMax === "number" && sMax > 0 && vMax > 0) {
+        return { sMax, vMax };
+      }
+    } catch {
+      // fall through
+    }
+  }
+  // Fallback to the canonical 1000 scale (most modern Tuya RGB bulbs).
+  return { sMax: 1000, vMax: 1000 };
+}
+
+// Scale a canonical 0-1000 HSV (from colorMap.ts) to whatever the device
+// actually expects. Hue is always 0-360 across both scales.
+function scaleHsv(canonical: { h: number; s: number; v: number }, scale: { sMax: number; vMax: number }) {
+  return {
+    h: Math.round(Math.max(0, Math.min(360, canonical.h))),
+    s: Math.round((canonical.s / 1000) * scale.sMax),
+    v: Math.round((canonical.v / 1000) * scale.vMax),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -247,13 +294,13 @@ function resolveTargets(devices: TuyaDeviceCached[], target: string): TuyaDevice
   const isLight = lightKeywords.some((k) => t === k || t.includes(k));
 
   if (isAll && isLight) {
-    return devices.filter((d) => d.category === "dj" || d.supportsColor || d.supportsBrightness);
+    return devices.filter((d) => LIGHT_CATEGORIES.has(d.category) || d.supportsColor || d.supportsBrightness);
   }
   if (isAll) {
     return devices;
   }
   if (isLight && (t === "lampu" || t === "lights" || t === "light")) {
-    return devices.filter((d) => d.category === "dj" || d.supportsColor || d.supportsBrightness);
+    return devices.filter((d) => LIGHT_CATEGORIES.has(d.category) || d.supportsColor || d.supportsBrightness);
   }
   const single = findDevice(devices, target);
   return single ? [single] : [];
@@ -279,6 +326,8 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
   if (!enabled) {
     return { success: false, error: "Tuya integration is disabled in admin settings." };
   }
+  // Re-bind to a non-null local so the closure below preserves narrowing.
+  const creds: TuyaCredentials = credentials;
 
   const cached = await loadCachedDevices();
   const targets = resolveTargets(cached, args.target);
@@ -292,38 +341,81 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
   const action = args.action.trim().toLowerCase();
   const turnOnAliases = ["on", "turn_on", "nyalakan", "hidupin", "buka"];
   const turnOffAliases = ["off", "turn_off", "matikan", "tutup"];
+  const isExplicitOn = turnOnAliases.includes(action);
+  const isExplicitOff = turnOffAliases.includes(action);
+  const wantsAttributeChange =
+    args.color !== undefined || args.brightness !== undefined || args.temperature !== undefined;
+  // Auto turn-on policy: if the user is changing attributes (color/brightness/
+  // temp) without explicitly saying "off", the device must be ON for the
+  // change to be visible. Mirrors tinytuya's `ensure_on=True` default.
+  const shouldAutoTurnOn = wantsAttributeChange && !isExplicitOff;
 
   const results: { device: string; ok: boolean; msg?: string }[] = [];
 
-  for (const dev of targets) {
-    const commands: Array<{ code: string; value: unknown }> = [];
+  // Send a single command with progressive fallbacks. Mirrors tinytuya's
+  // `_try_command_variations` — Tuya is finicky about value types
+  // (true vs "true" vs 1) and JSON dict vs JSON-string for colour_data.
+  async function sendOne(
+    deviceId: string,
+    code: string,
+    value: unknown,
+    altValues: unknown[] = [],
+  ): Promise<{ ok: boolean; msg?: string }> {
+    const tries = [value, ...altValues];
+    let lastMsg: string | undefined;
+    for (const v of tries) {
+      try {
+        const r = await sendDeviceCommands(creds, deviceId, [{ code, value: v }]);
+        if (r.success) return { ok: true };
+        lastMsg = r.message;
+      } catch (err) {
+        lastMsg = err instanceof Error ? err.message : String(err);
+      }
+    }
+    return { ok: false, msg: lastMsg };
+  }
 
-    // Compose commands based on flags. Order matters — set work_mode before
-    // colour_data so the device interprets the colour value correctly.
-    let needsColorMode = false;
-    let needsWhiteMode = false;
-    if (args.color) {
+  for (const dev of targets) {
+    let firstFailure: string | undefined;
+    const stepFailed = (msg?: string) => {
+      if (msg && !firstFailure) firstFailure = msg;
+    };
+
+    // 1) Auto turn-on (or explicit on) BEFORE attribute changes so brightness
+    //    / color land on a powered device.
+    if ((isExplicitOn || shouldAutoTurnOn) && dev.switchCode) {
+      const r = await sendOne(dev.id, dev.switchCode, true, ["true", 1, "1"]);
+      if (!r.ok) stepFailed(r.msg);
+      // Tinytuya sleeps 0.3s here; we skip the sleep — Tuya cloud is fast
+      // enough that subsequent commands queue correctly without it.
+    }
+
+    // 2) Color (and work_mode flip if needed).
+    const modeCode = detectCode(dev.capabilities, MODE_CODES);
+    if (args.color && dev.supportsColor) {
       if (isWhiteMode(args.color)) {
-        needsWhiteMode = true;
+        if (modeCode) {
+          const r = await sendOne(dev.id, modeCode, "white");
+          if (!r.ok) stepFailed(r.msg);
+        }
       } else {
-        const hsv = resolveColor(args.color);
-        if (hsv && dev.supportsColor) {
-          needsColorMode = true;
-          const colorCode = detectCode(dev.capabilities, COLOR_CODES);
-          if (colorCode) {
-            commands.push({ code: colorCode, value: hsv });
+        const canonical = resolveColor(args.color);
+        const colorCode = detectCode(dev.capabilities, COLOR_CODES);
+        if (canonical && colorCode) {
+          if (modeCode) {
+            const r = await sendOne(dev.id, modeCode, "colour");
+            if (!r.ok) stepFailed(r.msg);
           }
+          const scale = colorScaleFor(dev.capabilities, colorCode);
+          const hsv = scaleHsv(canonical, scale);
+          // Try dict, fall back to JSON-string (some Tuya bulbs reject one form).
+          const r = await sendOne(dev.id, colorCode, hsv, [JSON.stringify(hsv)]);
+          if (!r.ok) stepFailed(r.msg);
         }
       }
     }
-    const modeCode = detectCode(dev.capabilities, MODE_CODES);
-    if (needsColorMode && modeCode) {
-      commands.unshift({ code: modeCode, value: "colour" });
-    }
-    if (needsWhiteMode && modeCode) {
-      commands.push({ code: modeCode, value: "white" });
-    }
 
+    // 3) Brightness (scaled to device range, e.g. 25-255 or 10-1000).
     if (typeof args.brightness === "number" && dev.supportsBrightness) {
       const bcode = detectCode(dev.capabilities, BRIGHTNESS_CODES);
       if (bcode) {
@@ -331,10 +423,12 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
           parseRange(dev.capabilities.find((c) => c.code === bcode)?.values ?? "{}") ?? { min: 10, max: 1000 };
         const pct = Math.max(0, Math.min(100, args.brightness));
         const scaled = Math.round(range.min + (pct / 100) * (range.max - range.min));
-        commands.push({ code: bcode, value: scaled });
+        const r = await sendOne(dev.id, bcode, scaled);
+        if (!r.ok) stepFailed(r.msg);
       }
     }
 
+    // 4) Color temperature (Kelvin slider — separate from white/colour mode).
     if (typeof args.temperature === "number" && dev.supportsTempK) {
       const tcode = detectCode(dev.capabilities, TEMP_K_CODES);
       if (tcode) {
@@ -342,29 +436,30 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
           parseRange(dev.capabilities.find((c) => c.code === tcode)?.values ?? "{}") ?? { min: 0, max: 1000 };
         const pct = Math.max(0, Math.min(100, args.temperature));
         const scaled = Math.round(range.min + (pct / 100) * (range.max - range.min));
-        commands.push({ code: tcode, value: scaled });
+        const r = await sendOne(dev.id, tcode, scaled);
+        if (!r.ok) stepFailed(r.msg);
       }
     }
 
-    // On/off — push last so "set color + turn on" works in one call.
-    if (turnOnAliases.includes(action) && dev.switchCode) {
-      commands.push({ code: dev.switchCode, value: true });
-    } else if (turnOffAliases.includes(action) && dev.switchCode) {
-      commands.push({ code: dev.switchCode, value: false });
+    // 5) Explicit off — last so "off" calls don't fight any prior settings.
+    if (isExplicitOff && dev.switchCode) {
+      const r = await sendOne(dev.id, dev.switchCode, false, ["false", 0, "0"]);
+      if (!r.ok) stepFailed(r.msg);
     }
 
-    // If `action === "set"` and color/brightness present, no on/off needed.
-    if (commands.length === 0) {
+    // Were any commands actually sent for this device?
+    const didAnything =
+      isExplicitOn || isExplicitOff || shouldAutoTurnOn || wantsAttributeChange;
+    if (!didAnything) {
       results.push({ device: dev.name, ok: false, msg: "No applicable commands for this device" });
       continue;
     }
 
-    try {
-      const r = await sendDeviceCommands(credentials, dev.id, commands);
-      results.push({ device: dev.name, ok: r.success, msg: r.message });
-    } catch (err) {
-      results.push({ device: dev.name, ok: false, msg: err instanceof Error ? err.message : String(err) });
-    }
+    results.push({
+      device: dev.name,
+      ok: !firstFailure,
+      msg: firstFailure,
+    });
   }
 
   const allOk = results.every((r) => r.ok);

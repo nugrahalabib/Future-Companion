@@ -78,21 +78,44 @@ function nowMs(): number {
 interface InternalRequestOptions {
   credentials: TuyaCredentials;
   method: "GET" | "POST" | "PUT" | "DELETE";
-  path: string;            // e.g. "/v1.0/iot-01/associated-users/devices"
+  // Path WITHOUT query string (e.g. "/v1.0/iot-01/associated-users/devices").
+  path: string;
+  // Optional query parameters. Keys are sorted alphabetically before signing
+  // AND before being added to the URL (Tuya requires this — unsorted queries
+  // produce sign-invalid). Values are stringified but not URL-encoded for
+  // signing; they are URL-encoded for the actual fetch.
+  query?: Record<string, string>;
   body?: unknown;
   // When true, request a pre-auth signature (used for /v1.0/token only).
   preAuth?: boolean;
+}
+
+function buildSortedQuery(query: Record<string, string> | undefined): string {
+  if (!query) return "";
+  const keys = Object.keys(query).sort();
+  if (keys.length === 0) return "";
+  return "?" + keys.map((k) => `${k}=${query[k]}`).join("&");
+}
+
+function buildSortedQueryEncoded(query: Record<string, string> | undefined): string {
+  if (!query) return "";
+  const keys = Object.keys(query).sort();
+  if (keys.length === 0) return "";
+  return "?" + keys.map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(query[k])}`).join("&");
 }
 
 async function rawRequest<T>(
   opts: InternalRequestOptions,
   accessTokenOverride?: string,
 ): Promise<TuyaApiEnvelope<T>> {
-  const { credentials, method, path, body } = opts;
-  const url = `${endpointFor(credentials.region)}${path}`;
+  const { credentials, method, path, body, query } = opts;
   const bodyStr = body ? JSON.stringify(body) : "";
   const t = nowMs().toString();
-  const stringToSign = buildStringToSign(method, bodyStr, path);
+
+  // Sign with NON-URL-encoded query (per tinytuya), send with URL-encoded.
+  const signPath = path + buildSortedQuery(query);
+  const sendUrl = endpointFor(credentials.region) + path + buildSortedQueryEncoded(query);
+  const stringToSign = buildStringToSign(method, bodyStr, signPath);
 
   // Sign formula matches tinytuya exactly (no nonce):
   //   pre-auth:  apiKey + t + stringToSign
@@ -114,7 +137,7 @@ async function rawRequest<T>(
     headers["access_token"] = accessTokenOverride;
   }
 
-  const res = await fetch(url, {
+  const res = await fetch(sendUrl, {
     method,
     headers,
     body: bodyStr || undefined,
@@ -142,7 +165,8 @@ async function getToken(credentials: TuyaCredentials): Promise<{ accessToken: st
     {
       credentials,
       method: "GET",
-      path: "/v1.0/token?grant_type=1",
+      path: "/v1.0/token",
+      query: { grant_type: "1" },
       preAuth: true,
     },
   );
@@ -171,9 +195,10 @@ async function authedRequest<T>(
   method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
+  query?: Record<string, string>,
 ): Promise<TuyaApiEnvelope<T>> {
   const { accessToken } = await getToken(credentials);
-  return rawRequest<T>({ credentials, method, path, body }, accessToken);
+  return rawRequest<T>({ credentials, method, path, body, query }, accessToken);
 }
 
 // ---------------------------------------------------------------------------
@@ -195,27 +220,28 @@ export async function testTuyaConnection(credentials: TuyaCredentials): Promise<
   }
 }
 
-// Fetch all devices linked to the user the credentials represent.
-// Tuya pages this — we follow the page tokens until exhausted.
+// Fetch all devices linked to the Cloud Project. Mirrors tinytuya's
+// `_get_all_devices()` flow: hits /v1.0/iot-01/associated-users/devices
+// (the endpoint that doesn't require knowing a Smart Life user UID
+// upfront — token uid alone is not enough for /v1.3/iot-03/devices).
+// Pages via has_more + last_row_key.
 export async function listAllDevices(credentials: TuyaCredentials): Promise<TuyaDeviceListItem[]> {
-  const { uid } = await getToken(credentials);
+  await getToken(credentials);
   const collected: TuyaDeviceListItem[] = [];
   let lastRowKey: string | undefined;
   // Hard cap on iterations to avoid infinite loops if Tuya misbehaves.
   for (let page = 0; page < 50; page++) {
-    const params = new URLSearchParams();
-    params.set("page_size", "100");
-    if (lastRowKey) params.set("last_row_key", lastRowKey);
-    const path = `/v1.3/iot-03/devices?${params.toString()}&source_type=tuyaUser&source_id=${uid}`;
+    const query: Record<string, string> = { size: "50" };
+    if (lastRowKey) query.last_row_key = lastRowKey;
     const env = await authedRequest<{
-      list: TuyaDeviceListItem[];
-      has_more: boolean;
+      devices?: TuyaDeviceListItem[];
+      has_more?: boolean;
       last_row_key?: string;
-    }>(credentials, "GET", path);
+    }>(credentials, "GET", "/v1.0/iot-01/associated-users/devices", undefined, query);
     if (!env.success || !env.result) {
       throw new Error(`Device list failed: ${env.msg ?? "unknown"}`);
     }
-    collected.push(...(env.result.list ?? []));
+    collected.push(...(env.result.devices ?? []));
     if (!env.result.has_more) break;
     lastRowKey = env.result.last_row_key;
     if (!lastRowKey) break;
