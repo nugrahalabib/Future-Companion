@@ -4,6 +4,7 @@ import {
   loadCachedDevices,
   loadCredentials,
   saveCredentials,
+  setDeviceAllowed,
   syncDevices,
   testTuyaConnection,
 } from "@/lib/tuya/manager";
@@ -103,6 +104,19 @@ export async function POST(req: NextRequest) {
       }
       await saveCredentials({ ...credentials, enabled });
       return Response.json({ ok: true, enabled });
+    }
+
+    if (action === "set-allowed") {
+      const deviceId = typeof body.deviceId === "string" ? body.deviceId : "";
+      const allowed = body.allowed === true;
+      if (!deviceId) {
+        return Response.json({ ok: false, error: "deviceId required" }, { status: 400 });
+      }
+      const result = await setDeviceAllowed(deviceId, allowed);
+      if (result === null) {
+        return Response.json({ ok: false, error: "device_not_found" }, { status: 404 });
+      }
+      return Response.json({ ok: true, deviceId, allowed: result });
     }
 
     return Response.json({ ok: false, error: `unknown_action: ${action}` }, { status: 400 });

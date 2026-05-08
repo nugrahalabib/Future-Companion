@@ -3,7 +3,7 @@ import {
   executeControl,
   executeQuery,
   listDeviceNamesForAi,
-  loadCachedDevices,
+  loadAllowedDevices,
 } from "@/lib/tuya/manager";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +25,11 @@ export async function POST(req: NextRequest) {
   const args = (body.args ?? {}) as Record<string, unknown>;
 
   try {
+    // The companion-tools dispatcher is the AI runtime path. Every call
+    // here passes aiOnly=true so the model can only see and address the
+    // devices admin has whitelisted in /admin/tuya.
     if (name === "list_smart_devices") {
-      const devices = await loadCachedDevices();
+      const devices = await loadAllowedDevices();
       const summary = await listDeviceNamesForAi();
       return Response.json({
         ok: true,
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest) {
         devices: summary,
         message:
           devices.length === 0
-            ? "No devices linked yet. Ask the booth admin to sync Tuya in /admin/tuya."
+            ? "No devices are whitelisted for AI control yet. Ask the booth admin to allow some in /admin/tuya."
             : `Owner has ${devices.length} device(s) connected: ${summary.join("; ")}`,
       });
     }
@@ -58,13 +61,16 @@ export async function POST(req: NextRequest) {
       if (!target) {
         return Response.json({ ok: false, error: "target is required" });
       }
-      const result = await executeControl({
-        target,
-        action,
-        brightness: Number.isFinite(brightness) ? brightness : undefined,
-        color,
-        temperature: Number.isFinite(temperature) ? temperature : undefined,
-      });
+      const result = await executeControl(
+        {
+          target,
+          action,
+          brightness: Number.isFinite(brightness) ? brightness : undefined,
+          color,
+          temperature: Number.isFinite(temperature) ? temperature : undefined,
+        },
+        true, // aiOnly — restrict to whitelisted devices
+      );
       return Response.json({
         ok: result.success,
         device: result.device,
@@ -76,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     if (name === "query_smart_home") {
       const target = typeof args.target === "string" ? args.target : undefined;
-      const result = await executeQuery({ target });
+      const result = await executeQuery({ target }, true);
       return Response.json({
         ok: result.success,
         devices: result.devices,

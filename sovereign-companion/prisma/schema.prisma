@@ -176,6 +176,12 @@ model TuyaDevice {
   supportsBrightness Boolean @default(false)
   supportsColor      Boolean @default(false)
   supportsTempK      Boolean @default(false)
+  // Allowlist flag — only devices with allowed=true are exposed to the AI
+  // runtime (system-prompt injection, list_smart_devices, control_smart_home,
+  // query_smart_home). Admins can still test any synced device via the
+  // /admin/tuya panel regardless of this flag. Default false so a fresh sync
+  // never gives the AI access to devices the operator hasn't reviewed.
+  allowed      Boolean  @default(false)
   lastSyncedAt DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

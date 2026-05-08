@@ -182,8 +182,30 @@ export async function loadCachedDevices(): Promise<TuyaDeviceCached[]> {
       supportsBrightness: r.supportsBrightness,
       supportsColor: r.supportsColor,
       supportsTempK: r.supportsTempK,
+      allowed: r.allowed,
     };
   });
+}
+
+// Allowlisted subset — what the AI runtime sees. Admin UI uses
+// loadCachedDevices() to show every synced device regardless of flag.
+export async function loadAllowedDevices(): Promise<TuyaDeviceCached[]> {
+  const all = await loadCachedDevices();
+  return all.filter((d) => d.allowed);
+}
+
+// Set the allow flag for a single device. Used by the admin per-device
+// toggle. Returns the new flag value, or null if the device id is unknown.
+export async function setDeviceAllowed(deviceId: string, allowed: boolean): Promise<boolean | null> {
+  try {
+    const updated = await prisma.tuyaDevice.update({
+      where: { id: deviceId },
+      data: { allowed },
+    });
+    return updated.allowed;
+  } catch {
+    return null;
+  }
 }
 
 // Pull fresh device list from Tuya Cloud and replace the cache. Returns the
@@ -214,13 +236,22 @@ export async function syncDevices(): Promise<TuyaDeviceCached[]> {
       supportsBrightness: hasCapability(caps, BRIGHTNESS_CODES),
       supportsColor: hasCapability(caps, COLOR_CODES),
       supportsTempK: hasCapability(caps, TEMP_K_CODES),
+      // Placeholder — actual flag is read from DB inside the transaction
+      // below so admin whitelist decisions persist across resyncs.
+      allowed: false,
     });
   }
 
   // Replace cache atomically: delete absent devices, upsert present ones.
+  // The `allowed` flag is intentionally NOT touched on update — admin
+  // whitelist decisions persist across resyncs. New devices default to
+  // allowed=false (schema default) so a fresh sync never auto-grants the AI
+  // access to devices the operator hasn't reviewed.
   const presentIds = new Set(enriched.map((d) => d.id));
+  const finalDevices: TuyaDeviceCached[] = [];
   await prisma.$transaction(async (tx) => {
-    const existing = await tx.tuyaDevice.findMany({ select: { id: true } });
+    const existing = await tx.tuyaDevice.findMany({ select: { id: true, allowed: true } });
+    const allowedById = new Map(existing.map((r) => [r.id, r.allowed]));
     const toDelete = existing.map((r) => r.id).filter((id) => !presentIds.has(id));
     if (toDelete.length > 0) {
       await tx.tuyaDevice.deleteMany({ where: { id: { in: toDelete } } });
@@ -239,6 +270,7 @@ export async function syncDevices(): Promise<TuyaDeviceCached[]> {
           supportsBrightness: d.supportsBrightness,
           supportsColor: d.supportsColor,
           supportsTempK: d.supportsTempK,
+          // allowed defaults to false on new devices (schema default)
         },
         update: {
           name: d.name,
@@ -251,12 +283,14 @@ export async function syncDevices(): Promise<TuyaDeviceCached[]> {
           supportsColor: d.supportsColor,
           supportsTempK: d.supportsTempK,
           lastSyncedAt: new Date(),
+          // intentionally NOT touching `allowed` — preserve admin choice
         },
       });
+      finalDevices.push({ ...d, allowed: allowedById.get(d.id) ?? false });
     }
   });
 
-  return enriched;
+  return finalDevices;
 }
 
 // Re-export so admin endpoints don't need to know about the inner client.
@@ -318,7 +352,13 @@ export interface ControlArgs {
   temperature?: number;    // 0-100 (warm→cool, mapped to device range)
 }
 
-export async function executeControl(args: ControlArgs): Promise<TuyaCommandResult> {
+export async function executeControl(
+  args: ControlArgs,
+  // When true (called from the AI runtime), only devices flagged
+  // `allowed=true` are visible. Admin testing path passes false so any
+  // synced device can be poked.
+  aiOnly: boolean = false,
+): Promise<TuyaCommandResult> {
   const { credentials, enabled } = await loadCredentials();
   if (!credentials) {
     return { success: false, error: "Tuya not configured. Ask admin to set credentials." };
@@ -329,12 +369,14 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
   // Re-bind to a non-null local so the closure below preserves narrowing.
   const creds: TuyaCredentials = credentials;
 
-  const cached = await loadCachedDevices();
+  const cached = aiOnly ? await loadAllowedDevices() : await loadCachedDevices();
   const targets = resolveTargets(cached, args.target);
   if (targets.length === 0) {
     return {
       success: false,
-      error: `No device matches "${args.target}". Available: ${cached.map((d) => d.name).join(", ")}`,
+      error: cached.length === 0 && aiOnly
+        ? `No devices are whitelisted for AI control yet.`
+        : `No device matches "${args.target}". Available: ${cached.map((d) => d.name).join(", ")}`,
     };
   }
 
@@ -489,7 +531,12 @@ export async function executeControl(args: ControlArgs): Promise<TuyaCommandResu
 
 // Read current device states. AI calls this when user asks "are the lights
 // on?" / "what color is the lamp?".
-export async function executeQuery(args: { target?: string }): Promise<{
+export async function executeQuery(
+  args: { target?: string },
+  // Same allowlist gate as executeControl. AI runtime passes true; admin
+  // diagnostic UI passes false.
+  aiOnly: boolean = false,
+): Promise<{
   success: boolean;
   devices: Array<{
     name: string;
@@ -502,7 +549,7 @@ export async function executeQuery(args: { target?: string }): Promise<{
   if (!credentials || !enabled) {
     return { success: false, devices: [], message: "Tuya not enabled" };
   }
-  const cached = await loadCachedDevices();
+  const cached = aiOnly ? await loadAllowedDevices() : await loadCachedDevices();
   const targets = args.target ? resolveTargets(cached, args.target) : cached;
   const reports: Array<{
     name: string;
@@ -542,8 +589,10 @@ export async function executeQuery(args: { target?: string }): Promise<{
 
 // Compact list for the AI's tool list — just the names, plus a short
 // capability hint. Used when injecting context into the system prompt.
+// Allowlist-aware: only whitelisted devices are exposed to the model so it
+// can't reference / address devices the operator hasn't approved.
 export async function listDeviceNamesForAi(): Promise<string[]> {
-  const cached = await loadCachedDevices();
+  const cached = await loadAllowedDevices();
   return cached.map((d) => {
     const caps: string[] = [];
     if (d.switchCode) caps.push("on/off");

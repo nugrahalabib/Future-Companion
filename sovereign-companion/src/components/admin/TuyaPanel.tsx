@@ -242,14 +242,27 @@ export default function TuyaPanel() {
             <p className="text-[12px] text-text-muted mt-0.5">
               {state.devices.length === 0
                 ? t("admin.tuya.devices.empty")
-                : t("admin.tuya.devices.count", { count: state.devices.length })}
+                : `${t("admin.tuya.devices.count", { count: state.devices.length })} · ${t("admin.tuya.devices.allowedCount", { count: state.devices.filter((d) => d.allowed).length })}`}
+            </p>
+            <p className="text-[11px] text-text-muted/80 mt-1 max-w-[640px]">
+              {t("admin.tuya.devices.allowlistNote")}
             </p>
           </div>
         </div>
         {state.devices.length > 0 && (
           <div className="space-y-2">
             {state.devices.map((d) => (
-              <DeviceRow key={d.id} device={d} onActionDone={(msg) => setStatusMsg(msg)} />
+              <DeviceRow
+                key={d.id}
+                device={d}
+                onActionDone={(msg) => setStatusMsg(msg)}
+                onAllowedChange={(deviceId, allowed) => {
+                  setState((prev) => prev ? {
+                    ...prev,
+                    devices: prev.devices.map((x) => x.id === deviceId ? { ...x, allowed } : x),
+                  } : prev);
+                }}
+              />
             ))}
           </div>
         )}
@@ -265,13 +278,16 @@ export default function TuyaPanel() {
 function DeviceRow({
   device,
   onActionDone,
+  onAllowedChange,
 }: {
   device: TuyaDeviceCached;
   onActionDone: (msg: { tone: "ok" | "err" | "info"; text: string }) => void;
+  onAllowedChange: (deviceId: string, allowed: boolean) => void;
 }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [allowBusy, setAllowBusy] = useState(false);
   const [brightness, setBrightness] = useState(70);
   const [color, setColor] = useState<string>("");
 
@@ -295,6 +311,35 @@ function DeviceRow({
     }
   };
 
+  const toggleAllowed = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (allowBusy) return;
+    setAllowBusy(true);
+    const next = !device.allowed;
+    try {
+      const res = await adminFetch("/api/admin/tuya", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-allowed", deviceId: device.id, allowed: next }),
+      });
+      const data = (await res.json()) as { ok: boolean; allowed?: boolean; error?: string };
+      if (data.ok && typeof data.allowed === "boolean") {
+        onAllowedChange(device.id, data.allowed);
+        onActionDone({
+          tone: "ok",
+          text: `${device.name}: ${data.allowed ? t("admin.tuya.allow.granted") : t("admin.tuya.allow.revoked")}`,
+        });
+      } else {
+        onActionDone({
+          tone: "err",
+          text: `${device.name}: ${data.error ?? "failed"}`,
+        });
+      }
+    } finally {
+      setAllowBusy(false);
+    }
+  };
+
   const caps: string[] = [];
   if (device.switchCode) caps.push("on/off");
   if (device.supportsBrightness) caps.push("brightness");
@@ -302,7 +347,9 @@ function DeviceRow({
   if (device.supportsTempK) caps.push("temp");
 
   return (
-    <div className="rounded-xl border border-glass-border bg-glass-bg/40 overflow-hidden">
+    <div
+      className={`rounded-xl border ${device.allowed ? "border-bio-green/40" : "border-glass-border"} bg-glass-bg/40 overflow-hidden transition-colors`}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -315,6 +362,15 @@ function DeviceRow({
           />
           <span className="font-display font-semibold text-text-primary">{device.name}</span>
           <code className="text-[10px] text-text-muted font-mono">{device.id}</code>
+          {device.allowed ? (
+            <span className="text-[10px] font-display uppercase tracking-widest text-bio-green border border-bio-green/45 bg-bio-green/10 rounded-full px-2 py-0.5">
+              {t("admin.tuya.allow.allowedPill")}
+            </span>
+          ) : (
+            <span className="text-[10px] font-display uppercase tracking-widest text-text-muted border border-glass-border rounded-full px-2 py-0.5">
+              {t("admin.tuya.allow.blockedPill")}
+            </span>
+          )}
           {caps.map((c) => (
             <span
               key={c}
@@ -324,9 +380,30 @@ function DeviceRow({
             </span>
           ))}
         </div>
-        <span className="text-[11px] font-display uppercase tracking-widest text-text-muted">
-          {open ? "▴" : "▾"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={toggleAllowed}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggleAllowed(e as unknown as React.MouseEvent);
+              }
+            }}
+            aria-pressed={device.allowed}
+            className={`h-7 px-3 rounded-lg border text-[11px] font-display uppercase tracking-widest transition-colors cursor-pointer select-none ${
+              device.allowed
+                ? "border-bio-green/45 bg-bio-green/10 text-bio-green hover:bg-bio-green/20"
+                : "border-glass-border bg-obsidian-surface text-text-muted hover:text-cyan-accent hover:border-cyan-accent/40"
+            } ${allowBusy ? "opacity-60 pointer-events-none" : ""}`}
+          >
+            {device.allowed ? t("admin.tuya.allow.toggle.on") : t("admin.tuya.allow.toggle.off")}
+          </span>
+          <span className="text-[11px] font-display uppercase tracking-widest text-text-muted">
+            {open ? "▴" : "▾"}
+          </span>
+        </div>
       </button>
       {open && (
         <motion.div

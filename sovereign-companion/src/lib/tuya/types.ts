@@ -51,6 +51,10 @@ export interface TuyaDeviceCached {
   supportsBrightness: boolean;
   supportsColor: boolean;
   supportsTempK: boolean;
+  // Allowlist flag — true when admin has whitelisted this device for the AI
+  // runtime (system-prompt injection + companion tools). Admin UI exposes
+  // every cached device regardless; only this flag gates AI access.
+  allowed: boolean;
 }
 
 export interface TuyaCommandResult {
