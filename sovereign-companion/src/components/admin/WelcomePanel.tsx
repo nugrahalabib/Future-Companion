@@ -105,16 +105,21 @@ export default function WelcomePanel() {
       const data = (await res.json()) as {
         ok: boolean;
         broadcastRecipients?: number;
-        lighting?: { ok: boolean; message?: string; attempted?: string[] };
+        lighting?: {
+          ok: boolean;
+          steps?: { label: string; ok: boolean; message?: string }[];
+        };
         error?: string;
       };
       if (!data.ok) {
         setError(data.error ?? t("admin.welcome.error.trigger"));
       } else {
-        const lightingInfo =
-          data.lighting?.ok
-            ? t("admin.welcome.info.triggered.lightingOk")
-            : `${t("admin.welcome.info.triggered.lightingPartial")} ${data.lighting?.message ?? ""}`;
+        const stepLine = (data.lighting?.steps ?? [])
+          .map((s) => `${s.ok ? "✓" : "✗"} ${s.label}${!s.ok && s.message ? ` (${s.message})` : ""}`)
+          .join(" · ");
+        const lightingInfo = data.lighting?.ok
+          ? `${t("admin.welcome.info.triggered.lightingOk")} ${stepLine}`
+          : `${t("admin.welcome.info.triggered.lightingPartial")} ${stepLine}`;
         setInfo(
           `${t("admin.welcome.info.triggered.broadcast", { count: data.broadcastRecipients ?? 0 })} · ${lightingInfo}`,
         );

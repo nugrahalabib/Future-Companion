@@ -463,7 +463,20 @@ export async function executeControl(
     }
 
     // 3) Brightness (scaled to device range, e.g. 25-255 or 10-1000).
-    if (typeof args.brightness === "number" && dev.supportsBrightness) {
+    //    SKIP IF a non-white color is being applied. Several Tuya bulbs
+    //    interpret a bright_value command as "you're back in white mode"
+    //    and silently revert from colour to white the moment they see it,
+    //    even after we just told them work_mode=colour. The HSV `v`
+    //    channel inside colour_data already encodes brightness for the
+    //    colour mode, so brightness as a separate command is redundant
+    //    here and triggers the regression. To dim a colour, pick a colour
+    //    preset whose `v` value is lower (e.g. "dim", "sleep", "intimate").
+    const isColorCmd = Boolean(args.color) && !isWhiteMode(args.color);
+    if (
+      typeof args.brightness === "number" &&
+      dev.supportsBrightness &&
+      !isColorCmd
+    ) {
       const bcode = detectCode(dev.capabilities, BRIGHTNESS_CODES);
       if (bcode) {
         const range =
@@ -476,8 +489,9 @@ export async function executeControl(
       }
     }
 
-    // 4) Color temperature (Kelvin slider — separate from white/colour mode).
-    if (typeof args.temperature === "number" && dev.supportsTempK) {
+    // 4) Color temperature — SAME RULE as brightness above. Sending
+    //    temp_value when work_mode=colour kicks the bulb back to white.
+    if (typeof args.temperature === "number" && dev.supportsTempK && !isColorCmd) {
       const tcode = detectCode(dev.capabilities, TEMP_K_CODES);
       if (tcode) {
         const range =

@@ -26,54 +26,63 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-interface LightingResult {
+interface LightingStep {
+  label: string;
   ok: boolean;
   message?: string;
-  attempted: string[];
 }
 
+interface LightingResult {
+  ok: boolean;
+  steps: LightingStep[];
+}
+
+// Welcome scene orchestration. Order matters and is deliberate per
+// Tuya's quirks:
+//
+//   1. Power-ON FIRST. If we issue "set color" against a powered-off
+//      bulb the cloud accepts it but we don't see the change until the
+//      next power-on, which then sometimes flashes white before the
+//      colour applies. Sending switch=true as its own up-front call
+//      avoids that race entirely.
+//
+//   2. Then COLOR ONLY (no brightness, no temperature). Sending
+//      brightness or temp in the same payload as a colour command
+//      kicks the work_mode back to white on several Tuya devices
+//      (observed on lampu meja + soft box 1). The `v` channel inside
+//      colour_data already controls brightness within colour mode,
+//      so a separate bright_value command is redundant AND breaks the
+//      colour mode. Same applies to temp_value.
+//
+//   3. lampu tidur is intentionally on the power-on list. It's a smart
+//      socket (no colour, no brightness, just on/off) so it falls
+//      outside the "all lights" filter, but operators expect the room
+//      lit up at welcome, including the bedside lamp.
 async function fireWelcomeLighting(): Promise<LightingResult> {
-  const attempted: string[] = [];
-  let allOk = true;
-  const messages: string[] = [];
+  const steps: LightingStep[] = [];
 
-  // 1) All lights → on + blue
-  attempted.push("all lights → blue");
-  const allRes = await executeControl(
-    {
-      target: "all lights",
-      action: "set",
-      color: "blue",
-      brightness: 80,
-    },
-    false, // not aiOnly — operator scene can touch every synced light
-  );
-  if (!allRes.success) {
-    allOk = false;
-    if (allRes.error) messages.push(`all lights: ${allRes.error}`);
-    if (allRes.message) messages.push(`all lights: ${allRes.message}`);
-  }
+  const run = async (label: string, args: Parameters<typeof executeControl>[0]) => {
+    const r = await executeControl(args, false);
+    const message = r.message ?? r.error;
+    steps.push({ label, ok: r.success, message });
+    return r.success;
+  };
 
-  // 2) Override: soft box 2 → pink (so the booth ends with a blue room
-  //    + a pink accent on soft box 2). Soft box 1 stays blue from step 1.
-  attempted.push("soft box 2 → pink");
-  const sb2 = await executeControl(
-    {
-      target: "soft box 2",
-      action: "set",
-      color: "pink",
-      brightness: 80,
-    },
-    false,
-  );
-  if (!sb2.success) {
-    // Not fatal — the welcome event still fires even if a single light
-    // glitches. We surface it in the response so the operator can fix.
-    if (sb2.error) messages.push(`soft box 2: ${sb2.error}`);
-    if (sb2.message) messages.push(`soft box 2: ${sb2.message}`);
-  }
+  // ----- Step 1: power on EVERYTHING the booth might need on. -----
+  // "all lights" catches every colour-/dimmer-capable bulb (lampu meja,
+  // strips, soft boxes). lampu tidur is a switch-only smart socket so
+  // we hit it explicitly.
+  await run("all lights → on", { target: "all lights", action: "on" });
+  await run("lampu tidur → on", { target: "lampu tidur", action: "on" });
 
-  return { ok: allOk, message: messages.join("; ") || undefined, attempted };
+  // ----- Step 2: paint the room blue (colour command only). -----
+  await run("all lights → blue", { target: "all lights", action: "set", color: "blue" });
+
+  // ----- Step 3: override soft box 2 → pink. -----
+  await run("soft box 2 → pink", { target: "soft box 2", action: "set", color: "pink" });
+
+  const ok = steps.every((s) => s.ok);
+  return { ok, steps };
 }
 
 export async function POST(_req: NextRequest) {
@@ -90,10 +99,15 @@ export async function POST(_req: NextRequest) {
   // 2) Fire Tuya in parallel with everything else (don't block the
   //    response on Tuya — the broadcast + audio URL are what the
   //    welcome page actually needs to start playing).
-  const lightingPromise = fireWelcomeLighting().catch((err) => ({
+  const lightingPromise: Promise<LightingResult> = fireWelcomeLighting().catch((err) => ({
     ok: false,
-    message: err instanceof Error ? err.message : String(err),
-    attempted: [],
+    steps: [
+      {
+        label: "fireWelcomeLighting threw",
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+      },
+    ],
   }));
 
   // 3) Broadcast SSE — happens synchronously off the in-memory bus
