@@ -25,7 +25,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/prisma ./prisma
+# prisma/ holds dev.db (SQLite) which the app must read AND write at runtime,
+# plus the journal/wal/shm sidecar files SQLite creates during transactions.
+# Without --chown the dir lands as root:root and nextjs gets read-only access,
+# so writes throw and silently 500 (admin settings toggle was the symptom).
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 # Install prisma CLI globally so the entrypoint can run
 # `prisma migrate deploy` at container startup. Trying to copy
 # /app/node_modules/prisma alone fails because the CLI pulls in
