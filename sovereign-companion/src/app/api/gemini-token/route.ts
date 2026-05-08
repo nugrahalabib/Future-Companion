@@ -4,6 +4,7 @@ import { getDemoStatus } from "@/lib/demoMode";
 import { prisma } from "@/lib/prisma";
 import { buildSystemPrompt, type CompanionConfig } from "@/lib/systemPromptBuilder";
 import { loadOverrides } from "@/lib/systemPromptOverrides";
+import { listDeviceNamesForAi } from "@/lib/tuya/manager";
 
 // Per-IP token-bucket rate limit. Ephemeral tokens are single-use and short-
 // lived, but the mint call still counts toward Gemini quota and each minted
@@ -137,7 +138,19 @@ export async function POST(req: NextRequest) {
   if (rebuildConfig) {
     try {
       const overrides = await loadOverrides();
-      systemPrompt = buildSystemPrompt(rebuildConfig, rebuildLocale, overrides);
+      // Load Tuya devices server-side so the prompt contains a fresh device
+      // inventory at mint time. Failures here must not block the encounter —
+      // fall back to an empty list so the smart-home block degrades gracefully.
+      let deviceList = "";
+      try {
+        const deviceNames = await listDeviceNamesForAi();
+        deviceList = deviceNames.length
+          ? deviceNames.map((n) => `- ${n}`).join("\n")
+          : "";
+      } catch (err) {
+        console.warn("[gemini-token] device list load failed:", err);
+      }
+      systemPrompt = buildSystemPrompt(rebuildConfig, rebuildLocale, overrides, { deviceList });
     } catch (err) {
       console.warn("[gemini-token] override load/build failed, using client prompt:", err);
     }

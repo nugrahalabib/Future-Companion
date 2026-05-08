@@ -149,6 +149,37 @@ model SurveyResult {
   user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Singleton row holding the active Tuya Cloud credentials. Only one tenant
+// per booth deployment so id is fixed at 1. Region must match the data center
+// the developer account was created in (us / eu / cn / in).
+model TuyaConfig {
+  id           Int      @id @default(1)
+  accessId     String   @default("")
+  accessSecret String   @default("")
+  region       String   @default("us")
+  enabled      Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+  updatedBy    String   @default("")
+}
+
+// Cached device list pulled from Tuya Cloud. Refreshed when admin clicks
+// "Sync devices" in /admin/tuya. The capabilities JSON drives the AI tool
+// descriptions injected into the system prompt.
+model TuyaDevice {
+  id           String   @id   // Tuya device id (e.g. "ebdfd36d0464dffc1aqabz")
+  name         String
+  category     String   @default("")
+  productName  String   @default("")
+  online       Boolean  @default(true)
+  capabilities String   @default("[]")  // JSON array of {code,type,values,mode}
+  switchCode   String?                  // detected on/off code (switch_led / switch_1 / etc)
+  supportsBrightness Boolean @default(false)
+  supportsColor      Boolean @default(false)
+  supportsTempK      Boolean @default(false)
+  lastSyncedAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model SuggestionTemplate {
   id        Int      @id @default(1)
   version   Int      @default(1)

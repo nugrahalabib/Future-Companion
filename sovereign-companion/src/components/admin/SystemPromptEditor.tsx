@@ -20,6 +20,7 @@ const EMPTY_DEFAULTS: BlockDefaults = {
   primeDirectives: { en: "", id: "" },
   sensualLayer: { en: "", id: "" },
   identityFreeExpression: { en: "", id: "" },
+  smartHomeIntelligence: { en: "", id: "" },
   roleVibes: {
     "romantic-partner": { en: "", id: "" },
     "dominant-assistant": { en: "", id: "" },
@@ -42,6 +43,7 @@ const VARIABLE_HINTS = [
   "{userGender}",
   "{role}",
   "{firstHobby}",
+  "{deviceList}",
 ];
 
 export default function SystemPromptEditor() {
@@ -223,6 +225,15 @@ export default function SystemPromptEditor() {
         defaultPair={defaults.identityFreeExpression}
         onChange={(p) => updatePair("identityFreeExpression", p)}
         onClear={() => clearPair("identityFreeExpression")}
+      />
+
+      <PromptBlock
+        title={t("admin.prompt.block.smartHomeIntelligence.title")}
+        description={t("admin.prompt.block.smartHomeIntelligence.desc")}
+        pair={overrides.smartHomeIntelligence}
+        defaultPair={defaults.smartHomeIntelligence}
+        onChange={(p) => updatePair("smartHomeIntelligence", p)}
+        onClear={() => clearPair("smartHomeIntelligence")}
       />
 
       {/* Per-role vibes */}

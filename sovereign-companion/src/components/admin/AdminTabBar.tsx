@@ -15,6 +15,7 @@ const TABS = [
   { href: "/admin/forms", key: "forms", tKey: "admin.tab.forms" },
   { href: "/admin/prompt", key: "prompt", tKey: "admin.tab.prompt" },
   { href: "/admin/suggestions", key: "suggestions", tKey: "admin.tab.suggestions" },
+  { href: "/admin/tuya", key: "tuya", tKey: "admin.tab.tuya" },
   { href: "/admin/settings", key: "settings", tKey: "admin.tab.settings" },
 ] as const;
 

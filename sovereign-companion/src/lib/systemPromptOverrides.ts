@@ -48,6 +48,9 @@ export interface SystemPromptOverrides {
   primeDirectives: LocalePair;       // §3 (5 absolute rules)
   sensualLayer: LocalePair;          // §4.6 hot/sensual undertone
   identityFreeExpression: LocalePair; // §7 character lock + free expression
+  // Smart-home behavior block injected near §3. Authorizes proactive light /
+  // mood adjustments without explicit commands. Variables: {deviceList}.
+  smartHomeIntelligence: LocalePair;
 
   // Used inside §7 default when identityFreeExpression is empty.
   authorIdentity: LocalePair;
@@ -69,6 +72,7 @@ export const DEFAULT_OVERRIDES: SystemPromptOverrides = {
   primeDirectives: { en: "", id: "" },
   sensualLayer: { en: "", id: "" },
   identityFreeExpression: { en: "", id: "" },
+  smartHomeIntelligence: { en: "", id: "" },
   authorIdentity: {
     en: "Nugraha Labib, a student of MM-NVI cohort 7 at Universitas Prasetiya Mulya",
     id: "Nugraha Labib, anak MM-NVI angkatan 7 Universitas Prasetiya Mulya",
@@ -104,6 +108,7 @@ export function validateOverrides(input: unknown): SystemPromptOverrides {
     primeDirectives: validatePair(obj.primeDirectives, DEFAULT_OVERRIDES.primeDirectives),
     sensualLayer: validatePair(obj.sensualLayer, DEFAULT_OVERRIDES.sensualLayer),
     identityFreeExpression: validatePair(obj.identityFreeExpression, DEFAULT_OVERRIDES.identityFreeExpression),
+    smartHomeIntelligence: validatePair(obj.smartHomeIntelligence, DEFAULT_OVERRIDES.smartHomeIntelligence),
     authorIdentity: validatePair(obj.authorIdentity, DEFAULT_OVERRIDES.authorIdentity),
     roleVibes: {
       "romantic-partner": validatePair(roles["romantic-partner"], DEFAULT_OVERRIDES.roleVibes["romantic-partner"]),
@@ -168,6 +173,10 @@ export interface InterpolationVars {
   // {authorIdentity} substituted into the §7 default block at build time —
   // value comes from `overrides.authorIdentity` (or its bundled default).
   authorIdentity?: string;
+  // {deviceList} substituted into the smart-home block. Pre-formatted
+  // newline-separated list of device names + capability hints, or a fallback
+  // string when no devices are linked.
+  deviceList?: string;
 }
 
 export function interpolate(template: string, vars: InterpolationVars): string {
