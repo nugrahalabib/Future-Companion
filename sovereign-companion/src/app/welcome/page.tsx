@@ -105,7 +105,7 @@ export default function WelcomePage() {
           ? "Selesai"
           : phase === "error"
             ? "Coba Lagi"
-            : "WELCOME";
+            : "Click Here";
 
   const buttonDisabled = phase === "triggering" || phase === "playing";
 
