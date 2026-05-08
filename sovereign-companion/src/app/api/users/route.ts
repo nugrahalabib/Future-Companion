@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { getDemoStatus } from "@/lib/demoMode";
+import { isValidAgeLowerBound } from "@/lib/ageRanges";
+import { isValid2076Profession } from "@/lib/professions";
 
 export async function GET(req: NextRequest) {
   const email = req.nextUrl.searchParams.get("email");
@@ -104,6 +106,9 @@ export async function POST(req: NextRequest) {
   }
 
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  // fullName is optional now (was deprecated 2026-05-09 for privacy);
+  // we still accept and store it for backwards-compat with any old
+  // client cache, but new registrations leave it empty.
   const fullName = str(body.fullName);
   const nickname = str(body.nickname);
   const email = str(body.email).toLowerCase();
@@ -112,7 +117,7 @@ export async function POST(req: NextRequest) {
   const relationshipStatus = str(body.relationshipStatus);
   const ageNum = Number(body.age);
 
-  if (!fullName || !nickname || !email || !password || !profession || !relationshipStatus) {
+  if (!nickname || !email || !password || !profession || !relationshipStatus) {
     return Response.json({ error: "All fields are required" }, { status: 400 });
   }
 
@@ -120,8 +125,20 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Invalid email format" }, { status: 400 });
   }
 
-  if (!Number.isFinite(ageNum) || ageNum < 18 || ageNum > 100) {
-    return Response.json({ error: "Age must be between 18 and 100" }, { status: 400 });
+  // Age must be one of the canonical age-range lower bounds (18, 25,
+  // 31, 41, 51, 60). The register form picks a range and submits its
+  // lower bound; storing the bound (not the range string) keeps the
+  // existing `age` column as Int and lets the insights age-bucket chart
+  // continue to work without a schema migration.
+  if (!Number.isFinite(ageNum) || !isValidAgeLowerBound(ageNum)) {
+    return Response.json({ error: "Invalid age range" }, { status: 400 });
+  }
+
+  // Profession must be one of the curated 2076 jobs. Free-form input is
+  // no longer accepted to keep the dataset on-narrative for the
+  // exhibition.
+  if (!isValid2076Profession(profession)) {
+    return Response.json({ error: "Invalid profession" }, { status: 400 });
   }
 
   if (password.length < 6) {

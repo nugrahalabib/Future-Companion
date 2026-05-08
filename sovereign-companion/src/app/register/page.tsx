@@ -13,7 +13,12 @@ import { useSessionStore } from "@/stores/useSessionStore";
 import { useCompanionStore, type UserGender } from "@/stores/useCompanionStore";
 import { useLocaleStore } from "@/stores/useLocaleStore";
 import { useT } from "@/lib/i18n/useT";
-import { PROFESSION_SUGGESTIONS } from "@/lib/professions";
+import {
+  PROFESSIONS_2076,
+  PROFESSION_SECTORS,
+  PROFESSION_SECTOR_LABEL_KEY,
+} from "@/lib/professions";
+import { AGE_RANGES, ageRangeById } from "@/lib/ageRanges";
 import {
   NICKNAME_GROUPS,
   COMPANION_NAME_SAMPLES,
@@ -50,11 +55,13 @@ export default function RegisterPage() {
   const [tab, setTab] = useState<"new" | "resume">("new");
   const [phase, setPhase] = useState<"identity" | "bond">("identity");
   const [form, setForm] = useState({
-    fullName: "",
     nickname: "",
     email: "",
     password: "",
-    age: "",
+    // ageRange is the dropdown value (e.g. "25-30"). On submit we map
+    // it to its lower-bound int and store that in User.age — keeps the
+    // existing schema + insights buckets working without migration.
+    ageRange: "",
     profession: "",
     relationshipStatus: "",
     userGender: "" as UserGender,
@@ -117,20 +124,18 @@ export default function RegisterPage() {
 
   const validateIdentity = (): string | null => {
     const trimmed = {
-      fullName: form.fullName.trim(),
       nickname: form.nickname.trim(),
       email: form.email.trim(),
-      age: form.age.trim(),
+      ageRange: form.ageRange.trim(),
       profession: form.profession.trim(),
       relationshipStatus: form.relationshipStatus,
     };
 
     if (
-      !trimmed.fullName ||
       !trimmed.nickname ||
       !trimmed.email ||
       !form.password ||
-      !trimmed.age ||
+      !trimmed.ageRange ||
       !trimmed.profession ||
       !trimmed.relationshipStatus
     ) {
@@ -141,8 +146,7 @@ export default function RegisterPage() {
       return t("register.error.emailInvalid");
     }
 
-    const ageNum = Number(trimmed.age);
-    if (!Number.isFinite(ageNum) || ageNum < 18 || ageNum > 100) {
+    if (!ageRangeById(trimmed.ageRange)) {
       return t("register.error.ageInvalid");
     }
 
@@ -174,12 +178,14 @@ export default function RegisterPage() {
       return;
     }
 
+    const range = ageRangeById(form.ageRange.trim());
     const trimmed = {
-      fullName: form.fullName.trim(),
       nickname: form.nickname.trim(),
       email: form.email.trim(),
       password: form.password,
-      age: Number(form.age.trim()),
+      // Persist the lower-bound integer of the chosen range so the
+      // legacy User.age column + insights buckets keep working.
+      age: range ? range.min : 0,
       profession: form.profession.trim(),
       relationshipStatus: form.relationshipStatus,
       userGender: form.userGender,
@@ -203,7 +209,6 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName: trimmed.fullName,
           nickname: trimmed.nickname,
           email: trimmed.email,
           password: trimmed.password,
@@ -222,7 +227,10 @@ export default function RegisterPage() {
 
       setUser({
         userId: data.userId,
-        fullName: trimmed.fullName,
+        // fullName isn't collected anymore — pass an empty string so
+        // the store's legacy field stays compatible without leaking
+        // stale data from a prior session.
+        fullName: "",
         nickname: trimmed.nickname,
         email: trimmed.email,
         age: trimmed.age,
@@ -412,37 +420,20 @@ export default function RegisterPage() {
                       transition={{ duration: 0.25 }}
                       className="space-y-4"
                     >
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className={labelClass}>
-                            {t("register.field.fullName")} <span className="text-cyan-accent">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            minLength={2}
-                            autoComplete="name"
-                            className={inputClass}
-                            placeholder={t("register.field.fullName.placeholder")}
-                            value={form.fullName}
-                            onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <label className={labelClass}>
-                            {t("register.field.nickname")} <span className="text-cyan-accent">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            minLength={1}
-                            autoComplete="nickname"
-                            className={inputClass}
-                            placeholder={t("register.field.nickname.placeholder")}
-                            value={form.nickname}
-                            onChange={(e) => setForm({ ...form, nickname: e.target.value })}
-                          />
-                        </div>
+                      <div>
+                        <label className={labelClass}>
+                          {t("register.field.nickname")} <span className="text-cyan-accent">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          minLength={1}
+                          autoComplete="nickname"
+                          className={inputClass}
+                          placeholder={t("register.field.nickname.placeholder")}
+                          value={form.nickname}
+                          onChange={(e) => setForm({ ...form, nickname: e.target.value })}
+                        />
                       </div>
 
                       <div>
@@ -488,42 +479,54 @@ export default function RegisterPage() {
                         </p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className={labelClass}>
                             {t("register.field.age")} <span className="text-cyan-accent">*</span>
                           </label>
-                          <input
-                            type="number"
+                          <select
                             required
-                            min={18}
-                            max={100}
-                            className={inputClass}
-                            placeholder={t("register.field.age.placeholder")}
-                            value={form.age}
-                            onChange={(e) => setForm({ ...form, age: e.target.value })}
-                          />
+                            className={`${inputClass} cursor-pointer`}
+                            value={form.ageRange}
+                            onChange={(e) => setForm({ ...form, ageRange: e.target.value })}
+                          >
+                            <option value="" disabled>
+                              {t("register.field.age.placeholder")}
+                            </option>
+                            {AGE_RANGES.map((r) => (
+                              <option key={r.id} value={r.id} className="bg-obsidian-surface">
+                                {r.label}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className={labelClass}>
                             {t("register.field.profession")} <span className="text-cyan-accent">*</span>
                           </label>
-                          <input
-                            type="text"
+                          <select
                             required
-                            minLength={2}
-                            list="profession-suggestions"
-                            autoComplete="organization-title"
-                            className={inputClass}
-                            placeholder={t("register.field.profession.placeholder")}
+                            className={`${inputClass} cursor-pointer`}
                             value={form.profession}
                             onChange={(e) => setForm({ ...form, profession: e.target.value })}
-                          />
-                          <datalist id="profession-suggestions">
-                            {PROFESSION_SUGGESTIONS.map((p) => (
-                              <option key={p} value={p} />
-                            ))}
-                          </datalist>
+                          >
+                            <option value="" disabled>
+                              {t("register.field.profession.placeholder")}
+                            </option>
+                            {PROFESSION_SECTORS.map((sector) => {
+                              const items = PROFESSIONS_2076.filter((p) => p.sector === sector);
+                              if (items.length === 0) return null;
+                              return (
+                                <optgroup key={sector} label={t(PROFESSION_SECTOR_LABEL_KEY[sector])}>
+                                  {items.map((p) => (
+                                    <option key={p.value} value={p.value} className="bg-obsidian-surface">
+                                      {t(p.labelKey)}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              );
+                            })}
+                          </select>
                         </div>
                       </div>
 

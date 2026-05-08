@@ -171,7 +171,10 @@ export async function GET(req: NextRequest) {
       id: u.id,
       type,
       kind,
-      userName: u.fullName,
+      // fullName is legacy and now optional. Prefer the always-present
+      // nickname; fall back to the email handle so the activity feed
+      // never renders a stray empty string.
+      userName: u.fullName?.trim() || u.nickname?.trim() || u.email.split("@")[0],
       dropStage,
       companionName: u.companionConfig?.companionName ?? null,
       role: u.companionConfig?.role ?? null,

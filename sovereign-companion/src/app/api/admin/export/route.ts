@@ -13,6 +13,7 @@ import {
   LEGACY_NUMBER_FIELDS,
   LEGACY_TEXT_FIELDS,
 } from "@/lib/surveyTemplate";
+import { ageToRangeLabel } from "@/lib/ageRanges";
 
 type ExportKind = "respondents" | "survey" | "transcripts";
 
@@ -217,7 +218,7 @@ export async function GET(req: NextRequest) {
   const rows: string[] = [];
   rows.push(
     [
-      "userId", "fullName", "nickname", "email", "age", "profession", "relationshipStatus",
+      "userId", "fullName", "nickname", "email", "age", "ageRange", "profession", "relationshipStatus",
       "gender", "faceShape", "hairStyle", "bodyBuild", "outfit", "skinTone",
       "artificialWomb", "spermBank",
       "role", "dominanceLevel", "innocenceLevel", "emotionalLevel", "humorStyle",
@@ -262,6 +263,7 @@ export async function GET(req: NextRequest) {
         csvQ(ident.nickname),
         csvQ(ident.email),
         user.age,
+        csvQ(ageToRangeLabel(user.age)),
         csvQ(user.profession),
         csvQ(user.relationshipStatus),
         csvQ(c?.gender ?? ""),

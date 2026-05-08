@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { parseFeatures, parseHobbies, type FeaturesShape } from "./companionSerialize";
+import { ageToRangeLabel } from "./ageRanges";
 
 // Strip the gender-specific combine path prefix and clean the filename for
 // human display in admin charts. Handles both v2 paths (/assets/female/combine,
@@ -235,7 +236,7 @@ export async function getExportData(format: "json" | "csv") {
   rows.push(
     [
       // Identity
-      "userId", "fullName", "nickname", "email", "age", "profession", "relationshipStatus",
+      "userId", "fullName", "nickname", "email", "age", "ageRange", "profession", "relationshipStatus",
       // Companion config
       "gender", "faceShape", "hairStyle", "bodyBuild", "outfit", "skinTone",
       "artificialWomb", "spermBank",
@@ -282,6 +283,7 @@ export async function getExportData(format: "json" | "csv") {
         q(user.nickname),
         q(user.email),
         user.age,
+        q(ageToRangeLabel(user.age)),
         q(user.profession),
         q(user.relationshipStatus),
         q(c?.gender ?? ""),

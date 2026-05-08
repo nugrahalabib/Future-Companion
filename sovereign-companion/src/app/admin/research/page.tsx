@@ -380,7 +380,7 @@ function QualitativeSection({
               >
                 <div className="flex items-center justify-between text-[10px] font-display uppercase tracking-widest mb-1 text-text-muted">
                   <span>
-                    {it.fullName} · {labelize(ROLE_LABEL, it.role ?? undefined, locale)}
+                    {it.fullName?.trim() || t("admin.common.anonymous")} · {labelize(ROLE_LABEL, it.role ?? undefined, locale)}
                   </span>
                   <time>{new Date(it.createdAt).toLocaleDateString(dateLocale)}</time>
                 </div>

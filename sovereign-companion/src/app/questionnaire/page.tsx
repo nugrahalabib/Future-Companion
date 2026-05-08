@@ -12,6 +12,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import { useSessionStore } from "@/stores/useSessionStore";
 import { useT } from "@/lib/i18n/useT";
 import { useHydrated } from "@/lib/useHydrated";
+import { ageToRangeLabel } from "@/lib/ageRanges";
 import {
   DEFAULT_TEMPLATE,
   type SurveyQuestion,
@@ -405,18 +406,24 @@ function SectionIdentity({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="font-display text-xs uppercase tracking-widest text-text-muted">
-            {t("q.identity.nameLabel")}
-          </label>
-          <input
-            type="text"
-            readOnly
-            value={identity?.fullName ?? ""}
-            placeholder={t("q.identity.autofillHint")}
-            className={`${inputClass} opacity-80`}
-          />
-        </div>
+        {/* Full name field is only rendered for legacy respondents who
+            registered before fullName was retired (2026-05-09). New
+            visitors don't see it on their questionnaire identity card
+            because they were never asked for it. */}
+        {identity?.fullName?.trim() && (
+          <div className="space-y-2">
+            <label className="font-display text-xs uppercase tracking-widest text-text-muted">
+              {t("q.identity.nameLabel")}
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={identity.fullName}
+              placeholder={t("q.identity.autofillHint")}
+              className={`${inputClass} opacity-80`}
+            />
+          </div>
+        )}
         <div className="space-y-2">
           <label className="font-display text-xs uppercase tracking-widest text-text-muted">
             {t("q.identity.nicknameLabel")}
@@ -436,7 +443,7 @@ function SectionIdentity({
           <input
             type="text"
             readOnly
-            value={identity?.age ? String(identity.age) : ""}
+            value={identity?.age ? ageToRangeLabel(identity.age) : ""}
             placeholder={t("q.identity.autofillHint")}
             className={`${inputClass} opacity-80`}
           />

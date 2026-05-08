@@ -17,6 +17,7 @@ import {
 import { useT } from "@/lib/i18n/useT";
 import type { Locale } from "@/stores/useLocaleStore";
 import { adminFetch } from "@/lib/adminFetch";
+import { AGE_RANGES, ageToRangeLabel } from "@/lib/ageRanges";
 
 interface Row {
   id: string;
@@ -294,10 +295,14 @@ export default function RespondentsPage() {
                     <Td>{(data.page - 1) * data.limit + i + 1}</Td>
                     <Td>
                       <div className="flex flex-col">
-                        <span className="text-text-primary font-display">{r.fullName}</span>
-                        <span className="text-text-muted text-[11px]">{r.email}</span>
+                        <span className="text-text-primary font-display">
+                          {r.fullName?.trim() || r.email}
+                        </span>
+                        {r.fullName?.trim() && (
+                          <span className="text-text-muted text-[11px]">{r.email}</span>
+                        )}
                         <span className="text-text-muted text-[11px]">
-                          {t("admin.resp.table.age")} {r.age} · {r.profession}
+                          {ageToRangeLabel(r.age)} · {r.profession || "—"}
                         </span>
                       </div>
                     </Td>
@@ -596,21 +601,32 @@ function FilterPanel({
       />
       <div>
         <FilterLabel>
-          {t("admin.resp.filter.age.min")} – {t("admin.resp.filter.age.max")}
+          {t("admin.resp.filter.ageRange")}
         </FilterLabel>
-        <div className="flex items-center gap-2 mt-1.5">
-          <NumInput
-            value={filter.ageMin}
-            onChange={(n) => onChange({ ageMin: n })}
-            placeholder={t("admin.resp.filter.age.min")}
-          />
-          <span className="text-text-muted">–</span>
-          <NumInput
-            value={filter.ageMax}
-            onChange={(n) => onChange({ ageMax: n })}
-            placeholder={t("admin.resp.filter.age.max")}
-          />
-        </div>
+        <select
+          className="mt-1.5 w-full bg-obsidian-surface border border-glass-border rounded-lg px-3 py-2 text-[12px] text-text-primary focus:outline-none focus:border-cyan-accent/40"
+          value={
+            filter.ageMin !== undefined && filter.ageMax !== undefined
+              ? AGE_RANGES.find((r) => r.min === filter.ageMin && r.max === filter.ageMax)?.id ?? ""
+              : ""
+          }
+          onChange={(e) => {
+            const id = e.target.value;
+            if (!id) {
+              onChange({ ageMin: undefined, ageMax: undefined });
+              return;
+            }
+            const r = AGE_RANGES.find((x) => x.id === id);
+            if (r) onChange({ ageMin: r.min, ageMax: r.max });
+          }}
+        >
+          <option value="">{t("admin.resp.filter.ageRange.all")}</option>
+          {AGE_RANGES.map((r) => (
+            <option key={r.id} value={r.id} className="bg-obsidian-surface">
+              {r.label}
+            </option>
+          ))}
+        </select>
       </div>
       <div>
         <FilterLabel>

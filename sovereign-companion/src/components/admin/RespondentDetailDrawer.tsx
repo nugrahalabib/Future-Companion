@@ -11,6 +11,7 @@ import type { TranslateFn } from "@/lib/i18n/useT";
 import type { Locale } from "@/stores/useLocaleStore";
 import { adminFetch } from "@/lib/adminFetch";
 import type { SurveyQuestion, SurveyTemplateShape } from "@/lib/surveyTemplate";
+import { ageToRangeLabel } from "@/lib/ageRanges";
 
 interface Props {
   userId: string | null;
@@ -133,7 +134,12 @@ export default function RespondentDetailDrawer({ userId, onClose }: Props) {
                   {t("admin.drawer.header")}
                 </p>
                 <h2 className="font-display text-lg font-bold text-text-primary truncate">
-                  {data?.user.fullName ??
+                  {/* fullName is legacy + opt-in. Prefer the always-
+                      present nickname, then fall back to the email
+                      handle (before the @), then the placeholder. */}
+                  {data?.user.fullName?.trim() ||
+                    data?.user.nickname?.trim() ||
+                    data?.user.email?.split("@")[0] ||
                     (loading ? t("admin.common.loading") : t("admin.drawer.fallbackName"))}
                 </h2>
               </div>
@@ -231,11 +237,17 @@ function ProfileSection({
   return (
     <div className="space-y-1">
       <SectionTitle>{t("admin.drawer.profile.section.identity")}</SectionTitle>
-      <KV label={t("admin.drawer.profile.fullName")} value={u.fullName} />
+      {/* fullName is legacy and only present for pre-2026-05-09
+          rows. Hide the row entirely when empty so new respondents
+          don't show a blank "Full name —" line. */}
+      {u.fullName?.trim() && (
+        <KV label={t("admin.drawer.profile.fullName")} value={u.fullName} />
+      )}
       <KV label={t("admin.drawer.profile.nickname")} value={u.nickname || "—"} />
       <KV label={t("admin.drawer.profile.email")} value={u.email} />
-      <KV label={t("admin.drawer.profile.age")} value={u.age} />
-      <KV label={t("admin.drawer.profile.profession")} value={u.profession} />
+      <KV label={t("admin.drawer.profile.ageRange")} value={ageToRangeLabel(u.age)} />
+      <KV label={t("admin.drawer.profile.profession")} value={u.profession || "—"} />
+
       <KV
         label={t("admin.drawer.profile.relationship")}
         value={labelize(RELATIONSHIP_LABEL, u.relationshipStatus, locale)}

@@ -5,6 +5,7 @@ import GlassPanel from "@/components/ui/GlassPanel";
 import { labelize, ROLE_LABEL, GENDER_LABEL } from "@/lib/admin/labels";
 import { useT } from "@/lib/i18n/useT";
 import { adminFetch } from "@/lib/adminFetch";
+import { ageToRangeLabel } from "@/lib/ageRanges";
 
 interface ListRow {
   userId: string;
@@ -173,7 +174,7 @@ export default function TranscriptsPage() {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-display text-text-primary truncate">
-                        {row.fullName}
+                        {row.fullName?.trim() || row.email}
                       </p>
                       <p className="text-[11px] text-text-muted truncate">
                         {row.companionName} · {labelize(GENDER_LABEL, row.gender, locale)} ·{" "}
@@ -224,12 +225,11 @@ export default function TranscriptsPage() {
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <h3 className="font-display text-base text-text-primary">
-                    {detail.user.fullName}
+                    {detail.user.fullName?.trim() || detail.user.email}
                   </h3>
                   <p className="text-[11px] text-text-muted">
-                    {detail.user.email} ·{" "}
-                    {t("admin.trans.viewer.age", { age: detail.user.age })} ·{" "}
-                    {detail.user.profession}
+                    {detail.user.email} · {ageToRangeLabel(detail.user.age)} ·{" "}
+                    {detail.user.profession || "—"}
                   </p>
                   {detail.companion && (
                     <p className="text-[11px] text-text-muted mt-0.5">

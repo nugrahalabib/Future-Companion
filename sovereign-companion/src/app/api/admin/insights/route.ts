@@ -144,14 +144,16 @@ export async function GET(req: Request) {
   const npsScore =
     npsValues.length > 0 ? ((promoters - detractors) / npsValues.length) * 100 : 0;
 
-  // Age buckets
-  const ageBuckets = [
-    { label: "18–24", min: 18, max: 24, count: 0 },
-    { label: "25–34", min: 25, max: 34, count: 0 },
-    { label: "35–44", min: 35, max: 44, count: 0 },
-    { label: "45–54", min: 45, max: 54, count: 0 },
-    { label: "55+", min: 55, max: 200, count: 0 },
-  ];
+  // Age buckets — mirrors lib/ageRanges.ts so the insights chart and
+  // the registration form speak the same buckets. We import the shared
+  // list lazily so this route file stays self-contained.
+  const { AGE_RANGES } = await import("@/lib/ageRanges");
+  const ageBuckets = AGE_RANGES.map((r) => ({
+    label: r.label,
+    min: r.min,
+    max: r.max,
+    count: 0,
+  }));
   for (const c of configs) {
     const age = c.user.age;
     for (const b of ageBuckets) {
