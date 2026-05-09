@@ -15,4 +15,12 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:2970}
       PORT: 2970
       HOSTNAME: 0.0.0.0
+    # Bind-mount prisma/ so writes survive container rebuilds. Without this
+    # every `docker compose up --build` would reset dev.db to whatever was
+    # baked into the image, wiping all respondent/transcript/survey rows
+    # collected since the last build. The host dir contains schema.prisma
+    # and migrations/ too, so the entrypoint's `prisma migrate deploy` still
+    # works the same way; only the storage location changes.
+    volumes:
+      - ./prisma:/app/prisma
     restart: unless-stopped
