@@ -27,6 +27,36 @@ export default function WelcomePage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cooldownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Side-button: fires the same Tuya scene as checkout's "Paket telah saya
+  // terima" — all lights → bright white, lampu tidur → off. Reuses
+  // /api/checkout/celebrate so the scene definition stays in one place.
+  type RevealPhase = "idle" | "firing" | "done" | "error";
+  const [revealPhase, setRevealPhase] = useState<RevealPhase>("idle");
+  const revealCooldownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerReveal = useCallback(async () => {
+    if (revealPhase === "firing") return;
+    setRevealPhase("firing");
+    try {
+      const res = await fetch("/api/checkout/celebrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (!res.ok || !data.ok) {
+        setRevealPhase("error");
+      } else {
+        setRevealPhase("done");
+      }
+    } catch {
+      setRevealPhase("error");
+    } finally {
+      if (revealCooldownRef.current) clearTimeout(revealCooldownRef.current);
+      revealCooldownRef.current = setTimeout(() => setRevealPhase("idle"), 2500);
+    }
+  }, [revealPhase]);
+
   const triggerWelcome = useCallback(async () => {
     if (phase === "triggering" || phase === "playing") return;
     setErrorMsg(null);
@@ -89,6 +119,7 @@ export default function WelcomePage() {
   useEffect(() => {
     return () => {
       if (cooldownRef.current) clearTimeout(cooldownRef.current);
+      if (revealCooldownRef.current) clearTimeout(revealCooldownRef.current);
       if (audioRef.current) {
         try {
           audioRef.current.pause();
@@ -126,6 +157,52 @@ export default function WelcomePage() {
         }}
         transition={{ duration: 1.2 }}
       />
+
+      {/* Top-left small round button — fires the SAME Tuya scene as checkout's
+          "Paket telah saya terima": soft box 1 + 2 + wall strip → bright white,
+          lampu tidur → off. Lives outside the centered column so it doesn't
+          compete visually with the main welcome CTA. */}
+      <motion.button
+        type="button"
+        onClick={triggerReveal}
+        disabled={revealPhase === "firing"}
+        whileTap={revealPhase === "firing" ? undefined : { scale: 0.92 }}
+        aria-label="Bright white scene"
+        title="Bright white scene"
+        className={`absolute top-4 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-md transition-colors ${
+          revealPhase === "firing"
+            ? "border-cyan-accent/60 bg-cyan-accent/15 text-cyan-accent cursor-wait"
+            : revealPhase === "done"
+              ? "border-bio-green/60 bg-bio-green/15 text-bio-green cursor-pointer"
+              : revealPhase === "error"
+                ? "border-danger/60 bg-danger/15 text-danger cursor-pointer"
+                : "border-cyan-accent/30 bg-obsidian/40 text-cyan-accent hover:bg-cyan-accent/15 cursor-pointer"
+        }`}
+        style={{
+          boxShadow:
+            revealPhase === "done"
+              ? "0 0 18px rgba(57,255,20,0.45)"
+              : revealPhase === "firing"
+                ? "0 0 18px rgba(0,240,255,0.45)"
+                : revealPhase === "error"
+                  ? "0 0 14px rgba(255,80,80,0.35)"
+                  : "0 0 12px rgba(0,240,255,0.18)",
+        }}
+      >
+        <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+          <circle cx="12" cy="12" r="4" fill="currentColor" />
+          <g stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none">
+            <line x1="12" y1="2.5" x2="12" y2="5.5" />
+            <line x1="12" y1="18.5" x2="12" y2="21.5" />
+            <line x1="2.5" y1="12" x2="5.5" y2="12" />
+            <line x1="18.5" y1="12" x2="21.5" y2="12" />
+            <line x1="4.6" y1="4.6" x2="6.7" y2="6.7" />
+            <line x1="17.3" y1="17.3" x2="19.4" y2="19.4" />
+            <line x1="4.6" y1="19.4" x2="6.7" y2="17.3" />
+            <line x1="17.3" y1="6.7" x2="19.4" y2="4.6" />
+          </g>
+        </svg>
+      </motion.button>
 
       <div className="relative z-10 flex flex-col items-center gap-8 px-6">
         {/* Wordmark */}

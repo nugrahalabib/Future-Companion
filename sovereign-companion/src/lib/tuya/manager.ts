@@ -300,6 +300,16 @@ export { testTuyaConnection };
 // Device lookup — partial / case-insensitive name match (mirrors Shila)
 // ---------------------------------------------------------------------------
 
+// When the cache holds two devices with the same name (e.g. operator paired
+// the same physical strip twice and one row is now a ghost reporting
+// online=false), we want the live one so commands actually reach the
+// hardware. Picks the first online match if any; otherwise falls back to
+// the first match so error messages still surface for the operator.
+function preferOnline(matches: TuyaDeviceCached[]): TuyaDeviceCached | null {
+  if (matches.length === 0) return null;
+  return matches.find((d) => d.online) ?? matches[0];
+}
+
 function findDevice(
   devices: TuyaDeviceCached[],
   target: string,
@@ -309,17 +319,21 @@ function findDevice(
   // Exact id
   const byId = devices.find((d) => d.id === target);
   if (byId) return byId;
-  // Exact name (ci)
-  const byName = devices.find((d) => d.name.toLowerCase() === t);
-  if (byName) return byName;
-  // Substring
-  const byPartial = devices.find((d) => d.name.toLowerCase().includes(t));
-  if (byPartial) return byPartial;
-  return null;
+  // Exact name (ci) — collect all and prefer online to dodge duplicate-name
+  // ghost rows.
+  const exact = devices.filter((d) => d.name.toLowerCase() === t);
+  const onlineExact = preferOnline(exact);
+  if (onlineExact) return onlineExact;
+  // Substring — same online preference.
+  const partial = devices.filter((d) => d.name.toLowerCase().includes(t));
+  return preferOnline(partial);
 }
 
 // Group resolver — returns multiple devices when target is a "group keyword"
-// like "all lights" / "semua lampu" / just "lampu" alone.
+// like "all lights" / "semua lampu" / just "lampu" alone. Filters out
+// `online=false` rows because group fan-out is cosmetic (paint the room blue
+// at welcome) and an offline duplicate accepting the command but not
+// applying it lets the cloud report success while the hardware stays dark.
 function resolveTargets(devices: TuyaDeviceCached[], target: string): TuyaDeviceCached[] {
   const t = target.trim().toLowerCase();
   const allKeywords = ["semua", "all", "seluruh", "everything"];
@@ -328,13 +342,21 @@ function resolveTargets(devices: TuyaDeviceCached[], target: string): TuyaDevice
   const isLight = lightKeywords.some((k) => t === k || t.includes(k));
 
   if (isAll && isLight) {
-    return devices.filter((d) => LIGHT_CATEGORIES.has(d.category) || d.supportsColor || d.supportsBrightness);
+    return devices.filter(
+      (d) =>
+        d.online &&
+        (LIGHT_CATEGORIES.has(d.category) || d.supportsColor || d.supportsBrightness),
+    );
   }
   if (isAll) {
-    return devices;
+    return devices.filter((d) => d.online);
   }
   if (isLight && (t === "lampu" || t === "lights" || t === "light")) {
-    return devices.filter((d) => LIGHT_CATEGORIES.has(d.category) || d.supportsColor || d.supportsBrightness);
+    return devices.filter(
+      (d) =>
+        d.online &&
+        (LIGHT_CATEGORIES.has(d.category) || d.supportsColor || d.supportsBrightness),
+    );
   }
   const single = findDevice(devices, target);
   return single ? [single] : [];
