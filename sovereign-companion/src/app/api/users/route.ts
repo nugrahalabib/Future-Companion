@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const body = await req.json();
-  const action = body.action as "register" | "resume" | undefined;
+  const action = body.action as "register" | "resume" | "guest" | undefined;
 
   if (action === "resume") {
     const rawEmail = typeof body.email === "string" ? body.email.trim() : "";
