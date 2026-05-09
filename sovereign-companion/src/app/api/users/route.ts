@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { randomUUID } from "node:crypto";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { getDemoStatus } from "@/lib/demoMode";
 import { isValidAgeLowerBound } from "@/lib/ageRanges";
@@ -106,6 +107,74 @@ export async function POST(req: NextRequest) {
   }
 
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+  // Guest path — anyone can fill the questionnaire even if they didn't
+  // register at the booth. We accept nickname + age range + profession,
+  // skip the password requirement, and synthesise a placeholder email if
+  // the visitor didn't supply one (User.email is @unique so we need a
+  // value). The resulting User row is indistinguishable from a real
+  // booth registration on the analytics side, just with passwordHash=""
+  // and (for anonymous guests) an "@anonymous.local" email so admins can
+  // tell them apart at a glance.
+  if (action === "guest") {
+    const nickname = str(body.nickname);
+    const profession = str(body.profession);
+    const rawEmail = str(body.email).toLowerCase();
+    const ageNum = Number(body.age);
+    const relationshipStatus = str(body.relationshipStatus) || "Unspecified";
+
+    if (!nickname) {
+      return Response.json({ error: "Nickname required" }, { status: 400 });
+    }
+    if (!Number.isFinite(ageNum) || !isValidAgeLowerBound(ageNum)) {
+      return Response.json({ error: "Invalid age range" }, { status: 400 });
+    }
+    if (!profession || !isValid2075Profession(profession)) {
+      return Response.json({ error: "Invalid profession" }, { status: 400 });
+    }
+
+    let email: string;
+    if (rawEmail) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+        return Response.json({ error: "Invalid email format" }, { status: 400 });
+      }
+      const existing = await prisma.user.findUnique({ where: { email: rawEmail } });
+      if (existing) {
+        return Response.json(
+          { error: "Email already registered. Pick it from the lookup above instead." },
+          { status: 409 },
+        );
+      }
+      email = rawEmail;
+    } else {
+      // No email provided — synthesise one so the @unique constraint holds.
+      // The "@anonymous.local" suffix is a flag for the admin UI / exports.
+      email = `guest-${randomUUID()}@anonymous.local`;
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        fullName: "",
+        nickname,
+        email,
+        passwordHash: "",
+        age: ageNum,
+        profession,
+        relationshipStatus,
+      },
+    });
+
+    // Register a Session row so the respondent appears in funnel /
+    // analytics counts even though they never went through the booth flow.
+    await prisma.session.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id, registeredAt: new Date() },
+      update: {},
+    });
+
+    return Response.json({ userId: user.id, email: user.email, nickname: user.nickname });
+  }
+
   // fullName is optional now (was deprecated 2026-05-09 for privacy);
   // we still accept and store it for backwards-compat with any old
   // client cache, but new registrations leave it empty.

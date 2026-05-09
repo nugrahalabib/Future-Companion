@@ -16,6 +16,7 @@ export const translations: Record<Locale, Dictionary> = {
     "common.retry": "Retry",
     "common.continue": "Continue",
     "common.comingSoon": "Coming Soon",
+    "common.optional": "optional",
     "common.footer": "The Sovereign Companion · 2075",
 
     // Public welcome page (welcompanion.agentbuff.id / port 2975)
@@ -589,6 +590,15 @@ export const translations: Record<Locale, Dictionary> = {
     "q.identity.notFound": "No record found for that email.",
     "q.identity.required": "Please identify yourself first.",
     "q.identity.noMatches": "No matching records.",
+    // Guest mode (visitor without a booth registration can still fill the questionnaire)
+    "q.identity.helperGuest": "Didn't register at the booth? No problem, fill in your nickname, age, and profession below and you can still send your answers in.",
+    "q.identity.guestNote": "Your email isn't registered at the booth. Fill in your data below as a guest, your answers still feed the research.",
+    "q.identity.emailHelperGuest": "Optional. Leave blank to stay anonymous. Email is only used if the research team needs to follow up.",
+    "q.identity.emailInvalidFormat": "Email format isn't valid.",
+    "q.identity.guestError": "Failed to save your guest data, please try again.",
+    "q.identity.nicknamePlaceholder": "What should we call you?",
+    "q.identity.agePlaceholder": "Pick your age range…",
+    "q.identity.professionPlaceholder": "Pick your profession…",
 
     // Section headings + hints
     "q.section.expectations.title": "Before the Demo",
@@ -1494,6 +1504,7 @@ export const translations: Record<Locale, Dictionary> = {
     "common.retry": "Coba Lagi",
     "common.continue": "Lanjutkan",
     "common.comingSoon": "Segera Hadir",
+    "common.optional": "opsional",
     "common.footer": "The Sovereign Companion · 2075",
 
     // Public welcome page (welcompanion.agentbuff.id / port 2975)
@@ -2066,6 +2077,15 @@ export const translations: Record<Locale, Dictionary> = {
     "q.identity.notFound": "Tidak ada data untuk email tersebut.",
     "q.identity.required": "Kenalkan dirimu terlebih dahulu.",
     "q.identity.noMatches": "Tidak ada data yang cocok.",
+    // Mode tamu (pengunjung yang belum register di booth tetap bisa isi quesioner)
+    "q.identity.helperGuest": "Belum sempat register di booth? Tenang, isi nama panggilan, umur, dan pekerjaan di bawah dan kamu tetap bisa kirim jawabanmu.",
+    "q.identity.guestNote": "Email kamu belum terdaftar di booth. Isi data di bawah sebagai tamu, jawabanmu tetap masuk ke riset.",
+    "q.identity.emailHelperGuest": "Opsional. Kosongin kalau kamu mau anonim. Email cuma dipakai kalau tim riset perlu follow-up.",
+    "q.identity.emailInvalidFormat": "Format email belum valid.",
+    "q.identity.guestError": "Gagal menyimpan data tamu, coba lagi.",
+    "q.identity.nicknamePlaceholder": "Mau dipanggil apa?",
+    "q.identity.agePlaceholder": "Pilih rentang umur…",
+    "q.identity.professionPlaceholder": "Pilih pekerjaan…",
 
     // Section headings + hints
     "q.section.expectations.title": "Sebelum Demo Dimulai",

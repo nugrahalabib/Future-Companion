@@ -12,7 +12,12 @@ import { useUserStore } from "@/stores/useUserStore";
 import { useSessionStore } from "@/stores/useSessionStore";
 import { useT } from "@/lib/i18n/useT";
 import { useHydrated } from "@/lib/useHydrated";
-import { ageToRangeLabel } from "@/lib/ageRanges";
+import { ageToRangeLabel, ageRangeById, AGE_RANGES } from "@/lib/ageRanges";
+import {
+  PROFESSIONS_2075,
+  PROFESSION_SECTORS,
+  PROFESSION_SECTOR_LABEL_KEY,
+} from "@/lib/professions";
 import {
   DEFAULT_TEMPLATE,
   type SurveyQuestion,
@@ -48,6 +53,14 @@ function QuestionnaireInner() {
 
   const [identity, setIdentity] = useState<ResolvedUser | null>(null);
   const [emailInput, setEmailInput] = useState("");
+  // Guest-mode form fields. Used when the visitor reaches the questionnaire
+  // without a booth registration (no `?uid=`, no active store session, and
+  // no email match in the lookup). On Lanjut the page POSTs /api/users
+  // action=guest with these values to mint a fresh User row so the survey
+  // submission can attach to it.
+  const [guestNickname, setGuestNickname] = useState("");
+  const [guestAge, setGuestAge] = useState(""); // age range id (e.g. "25-30")
+  const [guestProfession, setGuestProfession] = useState("");
   const [responses, setResponses] = useState<Record<string, ResponseValue>>({});
   const [section, setSection] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -58,6 +71,12 @@ function QuestionnaireInner() {
   const [showErrors, setShowErrors] = useState(false);
 
   const activeUserId = identity?.userId ?? uidFromQuery ?? storeUserId;
+  // True when we're on a fresh /questionnaire visit without any prior
+  // registration context. The identity card switches into editable form
+  // mode in this case so the visitor can fill nickname/age/profession
+  // themselves.
+  const isGuestMode =
+    !uidFromQuery && !storeUserId && !identity;
 
   // Load active template on mount
   useEffect(() => {
@@ -95,7 +114,17 @@ function QuestionnaireInner() {
   function missingFieldsFor(sectionIndex: number): string[] {
     const miss: string[] = [];
     if (sectionIndex === 0) {
-      if (!activeUserId) miss.push("identity");
+      // Already have a user from booth flow / URL handoff / resolved email.
+      if (activeUserId) return miss;
+      // Guest mode: email is OPTIONAL (server synthesises one if blank)
+      // but if the visitor types something it must be a valid format.
+      // Nickname / age / profession are all required so the dataset
+      // stays usable for analytics.
+      const e = emailInput.trim();
+      if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) miss.push("identity");
+      if (!guestNickname.trim()) miss.push("nickname");
+      if (!guestAge) miss.push("age");
+      if (!guestProfession) miss.push("profession");
       return miss;
     }
     const sec = template.sections[sectionIndex - 1];
@@ -128,15 +157,60 @@ function QuestionnaireInner() {
   const canAdvance = () => currentMissing.length === 0;
   const isInvalid = (field: string) => showErrors && currentMissing.includes(field);
 
-  function handleNext() {
-    if (canAdvance()) {
-      setSection((s) => s + 1);
-    } else {
+  async function handleNext() {
+    if (!canAdvance()) {
       setShowErrors(true);
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
+      return;
     }
+    // Leaving the identity section without a userId — mint a guest User
+    // server-side using the form values, then continue. Mirrors the
+    // /api/users register payload shape with `action: "guest"` so no
+    // password is required.
+    if (section === 0 && !activeUserId) {
+      setLoading(true);
+      setSubmitError(null);
+      try {
+        const range = ageRangeById(guestAge);
+        const res = await fetch("/api/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "guest",
+            email: emailInput.trim(),
+            nickname: guestNickname.trim(),
+            age: range?.min ?? 0,
+            profession: guestProfession,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setSubmitError(data.error || t("q.identity.guestError"));
+          return;
+        }
+        // Fold the guest record into the identity slot so activeUserId
+        // resolves on subsequent renders and submit attaches correctly.
+        setIdentity({
+          userId: data.userId,
+          fullName: "",
+          nickname: guestNickname.trim(),
+          email: data.email || emailInput.trim(),
+          age: range?.min ?? 0,
+          profession: guestProfession,
+          companionName: "",
+          userNicknames: [],
+        });
+        setSection((s) => s + 1);
+      } catch {
+        setSubmitError(t("q.submit.error"));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    setSection((s) => s + 1);
   }
 
   async function handleSubmit() {
@@ -267,7 +341,14 @@ function QuestionnaireInner() {
                     hasActiveSession={Boolean(storeUserId) && !uidFromQuery}
                     activeUserId={activeUserId}
                     inputClass={inputClass}
-                    invalid={isInvalid("identity")}
+                    isGuestMode={isGuestMode}
+                    guestNickname={guestNickname}
+                    setGuestNickname={setGuestNickname}
+                    guestAge={guestAge}
+                    setGuestAge={setGuestAge}
+                    guestProfession={guestProfession}
+                    setGuestProfession={setGuestProfession}
+                    isFieldInvalid={(f) => isInvalid(f)}
                   />
                 ) : (
                   <DynamicSection
@@ -362,7 +443,14 @@ function SectionIdentity({
   hasActiveSession,
   activeUserId,
   inputClass,
-  invalid,
+  isGuestMode,
+  guestNickname,
+  setGuestNickname,
+  guestAge,
+  setGuestAge,
+  guestProfession,
+  setGuestProfession,
+  isFieldInvalid,
 }: {
   emailInput: string;
   setEmailInput: (v: string) => void;
@@ -371,45 +459,83 @@ function SectionIdentity({
   hasActiveSession: boolean;
   activeUserId: string | null;
   inputClass: string;
-  invalid?: boolean;
+  isGuestMode: boolean;
+  guestNickname: string;
+  setGuestNickname: (v: string) => void;
+  guestAge: string;
+  setGuestAge: (v: string) => void;
+  guestProfession: string;
+  setGuestProfession: (v: string) => void;
+  isFieldInvalid: (field: string) => boolean;
 }) {
   const { t } = useT();
+  const emailInvalid = isFieldInvalid("identity");
+  const nicknameInvalid = isFieldInvalid("nickname");
+  const ageInvalid = isFieldInvalid("age");
+  const professionInvalid = isFieldInvalid("profession");
+
+  // Field-level CSS helpers — re-used by all three editable inputs so the
+  // red highlight styling stays in lockstep with the validation banner.
+  const labelCls = (invalid: boolean) =>
+    `font-display text-xs uppercase tracking-widest ${
+      invalid ? "text-danger" : "text-text-muted"
+    }`;
+  const fieldCls = (invalid: boolean) =>
+    `${inputClass} ${invalid ? "border-danger/60" : ""}`;
+
   return (
     <div className="space-y-5">
       <div>
         <h2 className="font-display text-lg text-text-primary mb-1">
           {t("q.identity.title")}
         </h2>
-        <p className="text-sm text-text-secondary">{t("q.identity.helper")}</p>
+        <p className="text-sm text-text-secondary">
+          {isGuestMode ? t("q.identity.helperGuest") : t("q.identity.helper")}
+        </p>
       </div>
 
       <div
         className={`space-y-2 ${
-          invalid ? "rounded-xl border border-danger/60 bg-danger/5 p-4 -mx-1" : ""
+          emailInvalid ? "rounded-xl border border-danger/60 bg-danger/5 p-4 -mx-1" : ""
         }`}
-        style={invalid ? { boxShadow: "0 0 14px rgba(255,90,90,0.18)" } : undefined}
+        style={emailInvalid ? { boxShadow: "0 0 14px rgba(255,90,90,0.18)" } : undefined}
       >
-        <label
-          className={`font-display text-xs uppercase tracking-widest ${
-            invalid ? "text-danger" : "text-text-muted"
-          }`}
-        >
-          {invalid && <span aria-hidden>● </span>}
+        <label className={labelCls(emailInvalid)}>
+          {emailInvalid && <span aria-hidden>● </span>}
           {t("q.identity.emailLabel")}
+          {isGuestMode && (
+            <span className="ml-2 text-text-muted normal-case tracking-normal">
+              ({t("common.optional")})
+            </span>
+          )}
         </label>
         <EmailLookup value={emailInput} onChange={setEmailInput} onResolve={setIdentity} />
-        {invalid && (
+        {emailInvalid && (
           <p className="text-[11px] text-danger font-display uppercase tracking-widest">
-            {t("q.validation.required")}
+            {t("q.identity.emailInvalidFormat")}
+          </p>
+        )}
+        {isGuestMode && !emailInvalid && (
+          <p className="text-[11px] text-text-muted">
+            {t("q.identity.emailHelperGuest")}
           </p>
         )}
       </div>
 
+      {/* Guest-mode banner — surfaces the moment the visitor types an
+          email that doesn't match a registered booth user, so they
+          understand why the fields below switched to editable. */}
+      {isGuestMode && emailInput.trim() && !emailInvalid && (
+        <div className="rounded-xl border border-bio-green/40 bg-bio-green/[0.06] px-3.5 py-2.5">
+          <p className="text-[12px] leading-relaxed text-bio-green/90">
+            {t("q.identity.guestNote")}
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Full name field is only rendered for legacy respondents who
-            registered before fullName was retired (2026-05-09). New
-            visitors don't see it on their questionnaire identity card
-            because they were never asked for it. */}
+        {/* Legacy fullName — only rendered for resolved respondents who
+            registered before fullName was retired (2026-05-09). */}
         {identity?.fullName?.trim() && (
           <div className="space-y-2">
             <label className="font-display text-xs uppercase tracking-widest text-text-muted">
@@ -424,45 +550,110 @@ function SectionIdentity({
             />
           </div>
         )}
+
+        {/* Nickname */}
         <div className="space-y-2">
-          <label className="font-display text-xs uppercase tracking-widest text-text-muted">
+          <label className={labelCls(nicknameInvalid)}>
+            {nicknameInvalid && <span aria-hidden>● </span>}
             {t("q.identity.nicknameLabel")}
           </label>
-          <input
-            type="text"
-            readOnly
-            value={identity?.nickname ?? ""}
-            placeholder={t("q.identity.autofillHint")}
-            className={`${inputClass} opacity-80`}
-          />
+          {isGuestMode ? (
+            <input
+              type="text"
+              value={guestNickname}
+              onChange={(e) => setGuestNickname(e.target.value)}
+              placeholder={t("q.identity.nicknamePlaceholder")}
+              className={fieldCls(nicknameInvalid)}
+              maxLength={40}
+            />
+          ) : (
+            <input
+              type="text"
+              readOnly
+              value={identity?.nickname ?? ""}
+              placeholder={t("q.identity.autofillHint")}
+              className={`${inputClass} opacity-80`}
+            />
+          )}
         </div>
+
+        {/* Age range */}
         <div className="space-y-2">
-          <label className="font-display text-xs uppercase tracking-widest text-text-muted">
+          <label className={labelCls(ageInvalid)}>
+            {ageInvalid && <span aria-hidden>● </span>}
             {t("q.identity.ageLabel")}
           </label>
-          <input
-            type="text"
-            readOnly
-            value={identity?.age ? ageToRangeLabel(identity.age) : ""}
-            placeholder={t("q.identity.autofillHint")}
-            className={`${inputClass} opacity-80`}
-          />
+          {isGuestMode ? (
+            <select
+              value={guestAge}
+              onChange={(e) => setGuestAge(e.target.value)}
+              className={`${fieldCls(ageInvalid)} cursor-pointer`}
+            >
+              <option value="" disabled>
+                {t("q.identity.agePlaceholder")}
+              </option>
+              {AGE_RANGES.map((r) => (
+                <option key={r.id} value={r.id} className="bg-obsidian-surface">
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              readOnly
+              value={identity?.age ? ageToRangeLabel(identity.age) : ""}
+              placeholder={t("q.identity.autofillHint")}
+              className={`${inputClass} opacity-80`}
+            />
+          )}
         </div>
-        <div className="space-y-2">
-          <label className="font-display text-xs uppercase tracking-widest text-text-muted">
+
+        {/* Profession */}
+        <div className="space-y-2 sm:col-span-2">
+          <label className={labelCls(professionInvalid)}>
+            {professionInvalid && <span aria-hidden>● </span>}
             {t("q.identity.professionLabel")}
           </label>
-          <input
-            type="text"
-            readOnly
-            value={identity?.profession ?? ""}
-            placeholder={t("q.identity.autofillHint")}
-            className={`${inputClass} opacity-80`}
-          />
+          {isGuestMode ? (
+            <select
+              value={guestProfession}
+              onChange={(e) => setGuestProfession(e.target.value)}
+              className={`${fieldCls(professionInvalid)} cursor-pointer`}
+            >
+              <option value="" disabled>
+                {t("q.identity.professionPlaceholder")}
+              </option>
+              {PROFESSION_SECTORS.map((sector) => {
+                const items = PROFESSIONS_2075.filter((p) => p.sector === sector);
+                if (items.length === 0) return null;
+                return (
+                  <optgroup
+                    key={sector}
+                    label={t(PROFESSION_SECTOR_LABEL_KEY[sector])}
+                  >
+                    {items.map((p) => (
+                      <option key={p.value} value={p.value} className="bg-obsidian-surface">
+                        {t(p.labelKey)}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+          ) : (
+            <input
+              type="text"
+              readOnly
+              value={identity?.profession ?? ""}
+              placeholder={t("q.identity.autofillHint")}
+              className={`${inputClass} opacity-80`}
+            />
+          )}
         </div>
       </div>
 
-      {!activeUserId && (
+      {!activeUserId && !isGuestMode && (
         <p className="text-[11px] text-text-muted font-display uppercase tracking-widest">
           {t("q.identity.selectPrompt")}
         </p>
