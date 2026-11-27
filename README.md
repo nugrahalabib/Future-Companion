@@ -1,559 +1,375 @@
-<div align="center">
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/banner-dark.svg"><img src="docs/readme/banner-light.svg" width="100%" alt="Future Companion. An exhibition piece set in 2075: design an AI companion, talk to it by voice, then answer a research survey."></picture>
 
-# 🌌 The Sovereign Companion
+<p align="center"><a href="#getting-started">Getting started</a> · <a href="https://github.com/nugrahalabib">More of my work</a> · <a href="https://nugrahalabib.com">nugrahalabib.com</a></p>
 
-**Prototipe fungsional end-to-end untuk masa depan companionship AI — dipamerkan di Tech AI Future Indonesia 2076.**
+## Overview
 
-*Sebuah marketplace tempat manusia merancang, menguji dengan suara, dan "memesan" companion humanoid AI yang dapat dikustomisasi secara mendalam — dari bentuk rahang, warna kulit, persona psikologis, hingga modul biologis sintetis.*
+Future Companion, called The Sovereign Companion inside the app, is an interactive exhibition piece for the Tech AI Future Indonesia exhibition. It stages a marketplace in the year 2075. A visitor designs a humanoid AI companion, talks with it by voice for five minutes, orders it in a staged checkout, and then answers a research questionnaire about the experience.
 
-[![Next.js](https://img.shields.io/badge/Next.js-16.2-black?style=flat-square&logo=next.js)](https://nextjs.org)
-[![React](https://img.shields.io/badge/React-19.2-61DAFB?style=flat-square&logo=react)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
-[![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=flat-square&logo=prisma)](https://www.prisma.io)
-[![Gemini Live](https://img.shields.io/badge/Gemini%202.5-Native%20Audio-4285F4?style=flat-square&logo=google)](https://ai.google.dev)
-[![Tailwind](https://img.shields.io/badge/Tailwind-v4-06B6D4?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+The point is the questionnaire. People answer questions on voice quality, comfort, ethics, price and use cases after they have tried a companion, not after reading about one. Every choice, transcript line and stage timestamp is linked to the answers, and an admin dashboard turns each session into charts and an exportable dataset.
 
-> "Perfection is No Longer a Myth. It's Engineered."
+Nothing here is a real product or a real purchase. The portraits are pre-rendered images, the checkout is theatre, and the voice comes from Gemini Live with a persona built from the visitor's choices. Visitors see a data use notice before they register, and exports can replace names and emails with anonymous ids.
 
-</div>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/features-dark.svg"><img src="docs/readme/features-light.svg" width="100%" alt="What Future Companion does: Registration with notice, Nine-step Creator Studio, Assembly and reveal, Five-minute voice talk, Staged checkout, Editable questionnaire, Research dashboard, Booth controls."></picture>
 
----
+## Why it exists
 
-## 📖 Daftar Isi
+Future Companion (The Sovereign Companion in the app) is an exhibition piece and a research instrument in one. Visitors to the Tech AI Future Indonesia exhibition design an AI companion set in the year 2075, talk with it by voice for five minutes, go through a staged purchase, and then answer a questionnaire about what they felt and think. Nugraha Labib Mujaddid designed and built it while he was a master's student at Universitas Prasetiya Mulya. It is a prototype: no product is sold, and nothing is delivered except a small starter box handed over at the booth.
 
-- [Konsep & Premis](#-konsep--premis)
-- [Tujuan Strategis (Triple Purpose)](#-tujuan-strategis-triple-purpose)
-- [Alur User 8 Tahap](#-alur-user-8-tahap)
-- [Fitur Unggulan](#-fitur-unggulan)
-- [Arsitektur Teknis](#-arsitektur-teknis)
-- [Model Bisnis](#-model-bisnis-masa-depan)
-- [Admin Dashboard](#-admin-dashboard)
-- [Demo Mode Killswitch](#-demo-mode-killswitch-proteksi-biaya--keamanan)
-- [Setup Lokal](#-setup-lokal)
-- [Deployment](#-deployment)
-- [Struktur Project](#-struktur-project)
-- [Roadmap](#-roadmap)
-- [Kontribusi & Lisensi](#-kontribusi--lisensi)
+Ask people about AI companions in the abstract and you get abstract answers. The piece lets visitors try one first: they shape its looks and personality, hear it answer in real time, and go through the moment of ordering it. Only then are they asked about voice quality, comfort, ethical worries, price and possible uses.
 
----
+An exhibition booth also has its own constraints. Many visitors use the same machine one after another, the voice API costs money for every minute it runs, staff need to know how many people finish, and the research needs each answer tied to what the person actually did. The app handles all of that itself.
 
-## 🌠 Konsep & Premis
+| Who | What they do with it |
+| --- | --- |
+| **Booth visitor** | Registers after a data use notice, designs a companion, talks with it, completes the staged checkout and fills in the questionnaire on a phone via a QR code. |
+| **Booth team** | Pauses or schedules the demo, resets the machine for the next visitor, hands over the starter box, and watches live activity in the dashboard. |
+| **Researcher** | Edits the questionnaire and the companion's prompt, reads transcripts, compares answers by persona and attributes, and exports the dataset as CSV or JSON, anonymized if needed. |
 
-**Tahun 2076.** Manusia telah mencapai titik kelelahan batin (*social fatigue*) dalam berinteraksi dengan sesama manusia. Dating burnout, urban loneliness, dan fragmentasi hubungan sosial membuka pasar baru yang masif — **companionship artificial yang dikustomisasi 100% sesuai kebutuhan individu**.
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/before-after-dark.svg"><img src="docs/readme/before-after-light.svg" width="100%" alt="Before and after"></picture>
 
-The Sovereign Companion adalah prototipe marketplace tersebut. Dari depan PC, user dapat:
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/journey-dark.svg"><img src="docs/readme/journey-light.svg" width="100%" alt="How it works, step by step"></picture>
 
-1. **Merancang** robot humanoid mereka — wajah, rambut, bentuk tubuh, warna kulit, hingga modul biologis sintetis (rahim buatan, bank sperma).
-2. **Mengatur persona psikologis** — dominasi, kepolosan, emosi, humor, dan hobi (17 kategori minat).
-3. **Menguji dengan suara langsung** — percakapan real-time 5 menit dengan companion via Gemini 2.5 Flash Native Audio.
-4. **"Memesan"** dengan simulasi checkout futuristik → countdown 10 detik → pengantaran fisik langsung ke depan booth (teatrikal di pameran).
-5. **Memberikan feedback** lewat kuesioner skala Likert kelas riset akademik.
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/value-dark.svg"><img src="docs/readme/value-light.svg" width="100%" alt="What it changes"></picture>
 
-Setiap pergerakan slider, setiap pilihan toggle, setiap kata yang diucapkan, dan setiap respon kuesioner **tercatat secara real-time ke database** — membentuk dataset riset yang belum pernah ada sebelumnya di industri ini.
+## Tour
 
----
+### 1. Landing and registration
 
-## 🎯 Tujuan Strategis (Triple Purpose)
+The landing page sets the scene in 2075 and has one button. That button clears everything stored in the browser, so each visitor starts clean. Registration asks for a few details, explains how the data will be used, and then lets the visitor choose how the companion will address them and what it is called.
 
-Prototipe ini bukan sekadar demo. Setiap keputusan desain ditimbang terhadap **tiga tujuan sekaligus**:
+- Data use notice shown on the registration screen, in English and Indonesian
+- Age is collected as a range, profession from a list of invented 2075 jobs
+- Up to three nicknames for the visitor and a name for the companion
+- A password so a visitor can resume a session later
 
-### 1. 🧲 Magnet Investor
-Pameran Tech AI Future Indonesia menjadi panggung untuk memenangkan pendanaan. Momen *physical bridge* di tahap checkout — di mana paket fisik benar-benar muncul di meja user setelah countdown 10 detik — adalah kejutan teatrikal yang diingat investor berbulan-bulan setelah pameran. Polish visual, latensi suara Gemini yang nyaris nol, dan koreografi sinematik diprioritaskan di atas breadth fitur.
+<img src="docs/readme/screens/01-landing.jpg" width="100%" alt="Landing page, in English.">
 
-### 2. 🎓 Dataset Riset Kelas Harvard
-Setiap sesi menghasilkan data yang layak publikasi ilmiah:
+<sub>Landing page, in English.</sub>
 
-- **Timestamps** lengkap (registered → customized → assembled → encounter start/end → checkout → survey → completed) untuk analisis funnel akademik.
-- **Pola kustomisasi** lintas demografi (gender × role × usia × status hubungan).
-- **Transkrip percakapan** yang di-tag sentimen untuk analisis topik behavioral.
-- **Skala Likert** multi-dimensi tentang kesediaan pengganti interaksi manusia.
+<p><img src="docs/readme/screens/02-register-consent.jpg" width="100%" alt="The bond step of registration with the data use notice underneath (demo visitor)."></p>
 
-Ini adalah *moat data* proprietary untuk jurnal ilmiah dan positioning akademik jangka panjang.
+<sub>The bond step of registration with the data use notice underneath (demo visitor).</sub>
 
-### 3. 🔬 Validasi Pasar Sebelum R&D Hardware
-Sebelum menghabiskan jutaan dolar pada R&D robotika fisik, dashboard admin menjawab pertanyaan strategis:
+### 2. Creator Studio
 
-- Berapa persen user mengaktifkan **Artificial Womb** atau **Sperm Bank**?
-- Role mana yang paling diminati? (Romantic Partner / Dominant Assistant / Passive Listener / Intellectual Rival)
-- Kombinasi fisik mana yang paling populer? (Top-10 chart)
-- Apa yang sebenarnya dibicarakan user dengan companion-nya? (Word cloud dari transkrip)
+Nine steps shape the companion: gender, face, hair, body, outfit, skin tone, optional life modules, persona and hobbies. A preview on the right updates with each pick. There is no image generation at runtime: each combination maps to a pre-rendered portrait, and options without a finished portrait are marked coming soon.
 
-Setiap chart adalah **instrumen keputusan bisnis**, bukan dekorasi.
-
----
-
-## 🚶 Alur User 8 Tahap
-
-```
-  1. Landing        →   Intro sinematik + CTA "Mulai Rancang Companion-mu"
-  2. Register       →   Nama, email, usia, profesi, status, nickname, gender
-  3. Creator Studio →   8-step sequential picker (Gender → Face → Hair → Body
-                        → Skin → Extreme Features → Persona → Hobbies)
-  4. Assembly       →   Animasi perakitan 6.5 detik + reveal potret sinematik
-  5. Encounter      →   5 menit percakapan suara real-time dengan Gemini Live
-  6. Checkout       →   Neuro-sigil QR + alamat + countdown 10 detik
-  7. Questionnaire  →   Likert 1-5 + feature attribution + freeform feedback
-  8. Completed      →   Sesi selesai, data tersimpan
-```
-
-Setiap stage dilindungi **`RouteGuard`** berbasis Zustand — user tidak bisa melompat ke tahap yang belum terbuka, dan dapat melanjutkan sesi jika halaman di-refresh (state persist ke `localStorage`).
-
-### Creator Studio — 8 Langkah Sekuensial
-
-Berbeda dari versi awal yang memakai continuous sliders, Creator Studio saat ini menggunakan **pre-generated combinatorial picker**:
-
-| Step | Pilihan | Efek |
-|------|---------|------|
-| 1. Gender | Female / Male | Gate untuk varian face, hair, dan modul biologis |
-| 2. Face Shape | Alpha / Beta (gender-specific) | Varian PNG hiper-realistik |
-| 3. Hair Style | Hair 1 / Hair 2 (gender-specific) | Varian PNG |
-| 4. Body Build | Body 1 / Body 2 (gender-specific) | Varian PNG — trigger preload |
-| 5. Skin Tone | Fair / Medium / Tan / Deep | CSS `filter` overlay (bukan varian image) |
-| 6. Extreme Features | Artificial Womb / Sperm Bank | Spec-only + feature badge overlay |
-| 7. Persona | Role + 4 slider trait | System prompt Gemini |
-| 8. Hobbies | 17-pill multi-select | System prompt Gemini |
-
-**Total kombinasi visual:** 2 × 2 × 2 × 2 = **16 komposit hiper-realistik**. Zero runtime AI rendering → investor-demo-proof + zero-latency.
-
----
-
-## ✨ Fitur Unggulan
-
-### 🎙️ Real-Time Voice AI dengan Gemini Live
-- Model: `gemini-2.5-flash-native-audio-preview-12-2025`
-- WebSocket browser-direct via `@google/genai` SDK
-- **Audio pipeline end-to-end**: `getUserMedia` 16 kHz → `ScriptProcessorNode` → Float32 → Int16 → base64 PCM → Gemini
-- **Output playback**: base64 PCM 24 kHz → AudioContext → AnalyserNode → circular canvas visualizer (128-bin FFT)
-- **Live transcription** bidirectional (user + companion) tersimpan dengan `sequenceOrder` untuk replay akurat
-- **Tool calling** mock: `smart_home`, `set_reminder`, `check_weather` — menunjukkan kemampuan agentic
-- Ephemeral token minting server-side untuk keamanan API key
-
-### 🧠 Dynamic Persona Injection
-System prompt di-compose real-time dari pilihan user:
-```
-You are [CompanionName], a humanoid companion designed for [UserName].
-Role: [Romantic Partner]. Dominance: [very dominant]. Innocence: [naive].
-Emotional depth: [highly expressive]. Humor: [dry, sarcastic].
-Interests: Technology, Philosophy, Intimacy, Nightlife, Fashion.
-```
-Slider numerik dimapping ke deskripsi linguistik via `describeLevel()` — AI merespons dengan karakterisasi yang sangat berbeda antara "dominant" vs "submissive".
-
-### 🎨 Visual Direction: *Utopian Cyber-Elegance*
-- Background obsidian `#0A0A0A` + glassmorphism panels
-- Accent **cyan `#00F0FF`** + **bio-green `#39FF14`**
-- Font: Inter (body) + Space Grotesk (display)
-- **Framer Motion 12** untuk transisi biologis & sinematik
-- **Tanpa em-dash** di string user-facing (sesuai brand voice)
-
-### 🌏 Bilingual EN/ID
-Seluruh UI tersedia dalam Bahasa Indonesia dan English via custom `useT()` hook + dictionary flat-key. Default locale: Indonesia. Admin dashboard: English-only (audience investor/akademik internasional).
-
-### 💾 State Persistence yang Tahan Refresh
-Empat Zustand store (`user`, `session`, `companion`, `locale`) persist ke **localStorage** dengan `onRehydrateStorage` hydration flag untuk mencegah race condition saat first render. User dapat menutup tab di tengah Creator Studio dan melanjutkan sesi saat kembali.
-
-### 🔒 Session Reset Terkontrol
-Landing page CTA adalah **satu-satunya** surface yang me-wipe state browser — memastikan pengunjung booth berikutnya mulai fresh tanpa mengganggu data SQLite yang sudah tersimpan.
-
----
-
-## 🏗️ Arsitektur Teknis
-
-### Tech Stack
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Frontend                                                    │
-│  ├─ Next.js 16 (App Router + Turbopack)                      │
-│  ├─ React 19.2                                               │
-│  ├─ TypeScript 5                                             │
-│  ├─ Tailwind CSS v4                                          │
-│  ├─ Framer Motion 12 (animasi)                               │
-│  ├─ Recharts 3 (admin charts)                                │
-│  └─ d3-cloud (word cloud)                                    │
-├─────────────────────────────────────────────────────────────┤
-│  State                                                       │
-│  └─ Zustand 5 + persist middleware → localStorage            │
-├─────────────────────────────────────────────────────────────┤
-│  Backend (Next.js API Routes — Node runtime)                 │
-│  ├─ /api/users           — Registrasi & fetch profil         │
-│  ├─ /api/companion-config — Auto-save konfigurasi (debounce) │
-│  ├─ /api/transcripts      — Persist transkrip percakapan     │
-│  ├─ /api/sessions         — Stage timestamp tracker          │
-│  ├─ /api/gemini-token     — Ephemeral token minter           │
-│  ├─ /api/admin/*          — Dashboard endpoints (gated)      │
-│  └─ /api/settings/demo-status — Public killswitch status     │
-├─────────────────────────────────────────────────────────────┤
-│  Database                                                    │
-│  └─ SQLite via Prisma 6 — 6 model (User, CompanionConfig,    │
-│     Transcript, SurveyResult, Session, AppSettings)          │
-├─────────────────────────────────────────────────────────────┤
-│  Voice AI                                                    │
-│  └─ Gemini 2.5 Flash Native Audio Preview                    │
-│     (browser-direct WebSocket via @google/genai)             │
-├─────────────────────────────────────────────────────────────┤
-│  Deployment                                                  │
-│  └─ Single-container Docker (SQLite di-mount via volume)     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Database Schema
-
-```prisma
-User              1 ─── 1 CompanionConfig
-User              1 ─── 1 Session
-User              1 ─── 1 SurveyResult
-User              1 ─── N Transcript  (ordered by sequenceOrder)
-AppSettings       (singleton id=1 — demo mode state)
-```
-
-**Notable fields:**
-- `CompanionConfig.features` — JSON string: `{ artificialWomb: bool, spermBank: bool }`
-- `CompanionConfig.hobbies` — JSON string array
-- `CompanionConfig.userNickname` — JSON string array (client kirim `userNicknames: string[]`, API normalisasi)
-- `Session.*At` — 8 timestamp kolom untuk funnel analysis
-- `Transcript.sequenceOrder` — integer monotonic untuk reconstruction chat
-
-### Audio Pipeline Detail
-
-**Input (user → Gemini):**
-```
-navigator.mediaDevices.getUserMedia()
-  → AudioContext (16 kHz mono)
-  → ScriptProcessorNode (buffer 4096)
-  → Float32Array → Int16Array → base64
-  → session.sendRealtimeInput({ audio: { data, mimeType: "audio/pcm;rate=16000" } })
-```
-
-**Output (Gemini → user):**
-```
-session.onmessage → base64 PCM chunks
-  → AudioContext (24 kHz)
-  → AudioBufferSourceNode
-  → AnalyserNode (FFT 128)
-  → CanvasVisualizer (circular waveform)
-  → speakers
-```
-
-**Transkripsi:**
-- `inputTranscription` (user speech → text) disimpan real-time
-- `outputTranscription` (companion response → text) disimpan real-time
-- Setelah session end: batch POST ke `/api/transcripts`
-
----
-
-## 💼 Model Bisnis Masa Depan
-
-Prototipe ini sendiri tidak dimonetisasi, tetapi arsitektur dan copy ditulis untuk mendukung **enam layer revenue stream** masa depan:
-
-| # | Revenue Stream | Model |
-|---|---|---|
-| 1 | **Hardware Sales** | One-time premium per unit robot kustom |
-| 2 | **Lifetime Companionship Subscription** | Recurring cloud AI brain (disebut eksplisit di checkout copy) |
-| 3 | **Biological Module Upgrades** | Add-on premium (Artificial Womb / Sperm Bank) |
-| 4 | **Customization Marketplace** | 30% platform commission (model App Store) |
-| 5 | **Biomechanic Maintenance Service** | Annual fee (warranty card dalam physical box = sinyal ini) |
-| 6 | **B2B Data Licensing** | Aggregate insights ke fashion / kosmetik / sex-tech / elderly-care / mental-health |
-
-### Target Market
-
-**Primary (hyper-convert):** "Opting Out of Human Dating" — urban 25-40, high-income, technophile, ideologically ready.
-
-**Primary:** "Single" — loneliness + dating fatigue.
-
-**Secondary:** "Complicated" (escape fantasy), "Married" (domestic assistant — framing hati-hati).
-
-### Geographic Rollout
-
-```
-Phase 1: Indonesia urban premium (Jakarta / Surabaya / Bali via exhibition)
-Phase 2: East Asia (Japan / Korea — sex-tech matang + kultur hikikomori)
-Phase 3: Global (US West Coast, Northern Europe)
-```
-
-### Investor Profile
-
-Sex-tech, elderly care, mental health tech, luxury consumer.
-
----
-
-## 📊 Admin Dashboard
-
-Dashboard khusus tim project (`/admin`) — password-gated via `AdminLayout` dengan server-side verifikasi. Terdiri dari **7 tab segmented**:
-
-### 1. Overview
-KPI dengan *period-over-period delta*, area chart aktivitas sesi (toggle 7/30/90 hari), conversion funnel + drop-off per step, engagement hourly line, live activity feed.
-
-### 2. Respondents
-Tabel Google-Forms-style searchable dengan **URL-synced filters**:
-- Gender, role, face/hair/body/skin, extreme features (tri-state), age, experience, NPS bucket
-- Date range, completion/drop, relationship status
-- Row click → `RespondentDetailDrawer` dengan tab profil / companion / survey / transcript / session
-
-### 3. Transcripts
-Viewer percakapan two-pane: daftar sesi + preview & metrik di kiri, transkrip dengan highlight-search di kanan, plus kontrol copy / download-JSON.
-
-### 4. Insights
-- **NPS gauge** (promoter / passive / detractor)
-- **Purchase intent histogram**
-- **4-point persona radar** + per-role persona profile
-- **Role pie** + physical attribute grouped bars
-- **Age buckets** + relationship distribution
-- **Gender × role cross-tab heatmap**
-- **Hobby popularity** + extreme-feature adoption %
-- **Top-10 combinations gallery** (`F_FACE01_HAIR02_BODY01` dll)
-- **Word cloud** dari transkrip (stop-word filter EN + ID)
-
-### 5. Research
-Empat sub-tab — Likert histograms (grouped + mean/median/n), single/multi-choice distributions, qualitative responses dengan regex-based positive/negative/neutral sentiment tagging, cross-tabs (experience × role, ranked Likert means table).
-
-### 6. Export
-Dataset picker (respondents / survey-only / transcripts) × format (CSV / JSON) × privacy anonymization toggle (replace identifiers dengan `anon-*` opaque IDs). **9 filter presets** built-in.
-
-### 7. Settings
-**Demo mode killswitch** dan konfigurasi global aplikasi (detail di section berikutnya).
-
----
-
-## 🛡️ Demo Mode Killswitch (Proteksi Biaya & Keamanan)
-
-Fitur kritis untuk pameran: admin dapat **menjeda seluruh demo** di luar jam kerja untuk mencegah penggunaan Gemini Live yang tidak diinginkan (biaya API) tanpa perlu redeploy.
-
-### Defense in Depth
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ 1. Database (AppSettings singleton)                      │
-│    ├─ demoPaused: boolean                                │
-│    ├─ scheduleEnabled: boolean                           │
-│    ├─ scheduleStart: "09:00"                             │
-│    ├─ scheduleEnd: "17:00"                               │
-│    └─ pausedMessage: custom text per locale              │
-├─────────────────────────────────────────────────────────┤
-│ 2. Public Status Endpoint (/api/settings/demo-status)    │
-│    └─ No-store cache, polling 60s (30s saat encounter)   │
-├─────────────────────────────────────────────────────────┤
-│ 3. Server Enforcement (HTTP 503 "demo_paused")           │
-│    ├─ /api/gemini-token      — Block Gemini token        │
-│    ├─ /api/users             — Block registrasi          │
-│    ├─ /api/companion-config  — Block save config         │
-│    ├─ /api/transcripts       — Block save transkrip      │
-│    └─ /api/sessions          — Block session tracking    │
-├─────────────────────────────────────────────────────────┤
-│ 4. Client UI (DemoPausedScreen)                          │
-│    └─ Full-screen paused state dengan custom message     │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Logic Evaluasi
-
-```typescript
-function evaluateStatus(settings: AppSettings): DemoStatus {
-  if (settings.demoPaused) return "paused";
-  if (!settings.scheduleEnabled) return "active";
-
-  const now = currentTimeHHMM();
-  const { scheduleStart, scheduleEnd } = settings;
-
-  // Midnight wrap support (e.g., start=22:00, end=06:00)
-  if (scheduleStart <= scheduleEnd) {
-    return now >= scheduleStart && now < scheduleEnd ? "active" : "paused";
-  } else {
-    return now >= scheduleStart || now < scheduleEnd ? "active" : "paused";
-  }
-}
-```
-
-Admin tidak perlu SSH ke server untuk mematikan demo — cukup toggle di dashboard.
-
-### Admin Password — Server-Side Verified
-
-Login admin dilakukan via `POST /api/admin/login` yang verifikasi terhadap `process.env.ADMIN_PASSWORD`. **Tidak ada hardcode password di source code**. Jika env tidak di-set, login akan selalu gagal (fail-closed).
-
-Admin-gated endpoint menerima header `x-admin-password` yang divalidasi ulang di setiap request — tidak hanya trust client-side session.
-
----
-
-## 🛠️ Setup Lokal
-
-### Prerequisites
-
-- Node.js 20+ (recommended LTS)
-- npm atau pnpm
-- Gemini API key dari [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-### Langkah
+- Three genders, each with 16 pre-rendered portraits
+- Skin tone applied as a CSS filter on the portrait
+- Four roles and four sliders define the persona
+- Choices autosave to the server two seconds after each change
+
+<img src="docs/readme/screens/03-creator-face.jpg" width="100%" alt="Step 2, face shape, with the live preview.">
+
+<sub>Step 2, face shape, with the live preview.</sub>
+
+<p><img src="docs/readme/screens/04-creator-outfit.jpg" width="49%" alt="Step 5, outfit."> <img src="docs/readme/screens/05-creator-persona.jpg" width="49%" alt="Step 8, persona: a role, quick blends and four personality sliders."></p>
+
+<sub>Left: Step 5, outfit. · Right: Step 8, persona: a role, quick blends and four personality sliders.</sub>
+
+### 3. Assembly and reveal
+
+After the last step the companion is assembled in a short terminal-style sequence, then the matching portrait fades in with the companion's name.
+
+- 6.5 second sequence, then the reveal
+- Assembly time is saved as a stage timestamp
+
+<img src="docs/readme/screens/06-assembly.jpg" width="100%" alt="Assembly sequence.">
+
+<sub>Assembly sequence.</sub>
+
+<p><img src="docs/readme/screens/07-reveal.jpg" width="100%" alt="Reveal of the finished companion, Ava."></p>
+
+<sub>Reveal of the finished companion, Ava.</sub>
+
+### 4. Voice encounter
+
+The visitor talks with the companion for up to five minutes. The browser asks the server for a one-use token, then streams microphone audio to Gemini Live and plays the reply. The system prompt is built from the visitor's choices: role, sliders, hobbies, names and language. Both sides of the conversation are transcribed and saved in order.
+
+- Model gemini-2.5-flash-native-audio-preview-12-2025, browser to Gemini over WebSocket
+- Audio capture in an AudioWorklet and a frequency visualizer
+- Three tools the companion can call: smart home, reminder and weather (demo responses)
+- No screenshot here: this stage needs a paid Gemini key, which was not used for this page
+
+### 5. Checkout and farewell
+
+The order is theatre. The visitor scans a neuro-sigil, sees a delivery address confirm itself, authorizes a subscription and watches a 10 second countdown. When the visitor confirms the package, the booth team hands over the starter box and the farewell screen shows a QR code to the questionnaire.
+
+- Optional Tuya scene turns the booth lights bright white on delivery
+- Farewell screen returns to the start on a timer for the next visitor
+
+<img src="docs/readme/screens/08-checkout.jpg" width="100%" alt="Staged checkout with the neuro-sigil (address blurred).">
+
+<sub>Staged checkout with the neuro-sigil (address blurred).</sub>
+
+<p><img src="docs/readme/screens/09-farewell.jpg" width="100%" alt="Farewell with the QR code to the questionnaire (QR and link blurred)."></p>
+
+<sub>Farewell with the QR code to the questionnaire (QR and link blurred).</sub>
+
+### 6. Research questionnaire
+
+The questionnaire opens on the visitor's phone. It first identifies the visitor by the email used at the booth, or creates a guest entry, then walks through sections on expectations, the Creator Studio, the reveal, the voice conversation, ethics and society, buying intent, emotional response and recommendation.
+
+- Likert scales, an NPS scale, single and multi choice, and open questions
+- Template stored in the database and edited in the admin
+- Guest visitors can answer without a booth registration
+
+<img src="docs/readme/screens/10-questionnaire.jpg" width="100%" alt="Questionnaire, identity section.">
+
+<sub>Questionnaire, identity section.</sub>
+
+### 7. Research dashboard
+
+The admin opens on totals, completion rate, average conversation length and experience score, daily activity, a stage by stage funnel and activity by hour. Insights adds NPS, purchase intent, persona and attribute charts, popular combinations and a word cloud from feedback.
+
+- Periods of 7, 30 and 90 days
+- Drop-off counts between every pair of stages
+- Live activity list of the latest visitors
+
+<img src="docs/readme/screens/11-admin-overview.jpg" width="100%" alt="Overview with daily activity (invented demo data).">
+
+<sub>Overview with daily activity (invented demo data).</sub>
+
+<p><img src="docs/readme/screens/12-admin-funnel.jpg" width="49%" alt="Conversion funnel and activity by hour (invented demo data)."> <img src="docs/readme/screens/15-admin-insights.jpg" width="49%" alt="Insights: NPS, purchase intent, average persona and role charts (invented demo data)."></p>
+
+<sub>Left: Conversion funnel and activity by hour (invented demo data). · Right: Insights: NPS, purchase intent, average persona and role charts (invented demo data).</sub>
+
+<p><img src="docs/readme/screens/16-admin-attributes.jpg" width="100%" alt="Physical attributes, age ranges and relationship status (invented demo data)."></p>
+
+<sub>Physical attributes, age ranges and relationship status (invented demo data).</sub>
+
+### 8. Respondents, transcripts and research views
+
+Respondents can be filtered by companion choices, persona, status, age and completion, and opened one by one. Transcripts shows every conversation line by line. Research shows each survey question with its average and distribution, grouped by section.
+
+- Filters for gender, role, face, hair, body, outfit, skin, age and status
+- Search across all conversations
+- Per-question averages and medians
+
+<img src="docs/readme/screens/13-admin-respondents.jpg" width="100%" alt="Respondents with filters (invented demo data).">
+
+<sub>Respondents with filters (invented demo data).</sub>
+
+<p><img src="docs/readme/screens/14-admin-transcripts.jpg" width="49%" alt="Transcripts of a conversation (invented demo lines)."> <img src="docs/readme/screens/17-admin-research.jpg" width="49%" alt="Research view per question (invented demo data)."></p>
+
+<sub>Left: Transcripts of a conversation (invented demo lines). · Right: Research view per question (invented demo data).</sub>
+
+### 9. Export and survey builder
+
+Export downloads respondents, survey answers or conversations as CSV or JSON, with filter presets and an option to replace names and emails with anonymous ids. The survey builder edits sections and questions in both languages without code.
+
+- Anonymize option for exports
+- Questions, types and answer options editable per language
+- Reset to the built-in default template
+
+<img src="docs/readme/screens/18-admin-export.jpg" width="100%" alt="Export with dataset, format and filter presets.">
+
+<sub>Export with dataset, format and filter presets.</sub>
+
+<p><img src="docs/readme/screens/19-admin-survey-builder.jpg" width="100%" alt="Survey form builder."></p>
+
+<sub>Survey form builder.</sub>
+
+### 10. Booth controls
+
+A master switch pauses the demo, and a daily schedule limits it to booth hours. When the demo is off, visitors see a paused screen and the server refuses new voice tokens. Other admin tabs edit the system prompt, the conversation suggestions, the welcome audio made with Gemini TTS, and the Tuya devices used for booth lighting.
+
+- Manual pause and opening hours
+- System prompt editor with defaults and overrides
+- Welcome page that plays a chosen audio clip
+
+<img src="docs/readme/screens/20-admin-demo-switch.jpg" width="100%" alt="Demo mode control with the master switch and schedule.">
+
+<sub>Demo mode control with the master switch and schedule.</sub>
+
+## How it is built
+
+One Next.js 16 App Router app in sovereign-companion/. Each stage is a page guarded by a RouteGuard that compares the stage stored in the browser with the stage the page needs. Visitor state lives in Zustand stores persisted to localStorage, so a refresh does not lose progress, and every stage also writes to the server.
+
+API routes use Prisma with SQLite. Visitor routes save users, companion configs, session timestamps, transcripts and survey answers; admin routes under /api/admin check an x-admin-password header against the ADMIN_PASSWORD environment variable.
+
+Voice runs from the browser straight to Gemini Live. The server route /api/gemini-token builds the full live-session config (system prompt, voice, language, transcription) and mints a one-use ephemeral token with that config locked in, so the browser never holds the API key and cannot change the persona.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/architecture-dark.svg"><img src="docs/readme/architecture-light.svg" width="100%" alt="How Future Companion is built."></picture>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/data-model-dark.svg"><img src="docs/readme/data-model-light.svg" width="100%" alt="Data model"></picture>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/flow-1-dark.svg"><img src="docs/readme/flow-1-light.svg" width="100%" alt="Starting a voice session"></picture>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/flow-2-dark.svg"><img src="docs/readme/flow-2-light.svg" width="100%" alt="Moving through the stages"></picture>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/flow-3-dark.svg"><img src="docs/readme/flow-3-light.svg" width="100%" alt="Saving the questionnaire"></picture>
+
+### Security
+
+- The Gemini API key is used only on the server; browsers receive a one-use token that expires.
+- Admin API routes require the x-admin-password header to match ADMIN_PASSWORD; with no ADMIN_PASSWORD set, admin access is refused.
+- Visitor passwords are hashed with scrypt and a random salt and compared with timingSafeEqual.
+- Voice, session and config routes return HTTP 503 while the demo is paused or outside booth hours.
+- The database file, .env files and respondent data are ignored by git.
+- Known limits: the admin password is a plain comparison kept in sessionStorage and there is no login rate limiting, which suits a staffed booth on a closed network more than the open internet.
+
+### Decisions
+
+| Decision | Why |
+| --- | --- |
+| Pre-rendered portraits | No image generation at the booth: picks map to finished images, so the reveal is instant and always looks right. |
+| Browser-direct voice with ephemeral tokens | Audio goes straight from the browser to Gemini for low latency, while the API key and the persona stay locked on the server. |
+| SQLite in a mounted folder | One machine runs one booth. A single file is simple to back up and move, and it survives container rebuilds. |
+| Survey answers kept twice | Known questions fill typed columns for the charts, and the full payload is kept raw so questions added later in the builder are not lost. |
+| Demo switch on the server | Pausing in the admin stops new voice tokens at the source, so cost cannot run outside booth hours even if a tab is left open. |
+| Everything in two languages | Visitors choose English or Indonesian, and the survey keeps both versions of every question. |
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/stack-dark.svg"><img src="docs/readme/stack-light.svg" width="100%" alt="Future Companion stack."></picture>
+
+### Highlights
+
+- The Gemini API key stays on the server: the browser gets a one-use token with the persona, voice and transcription settings locked into it.
+- When the booth is paused or closed, the token, session and config routes answer HTTP 503, so nobody can run up voice cost after hours.
+- Each stage writes a timestamp to one session row, from registration to the completed survey, which feeds the funnel chart and drop-off counts.
+- Visitor passwords are hashed with scrypt and checked in constant time, and age is stored as a range rather than an exact age.
+- The start button clears all browser state so the next visitor at the booth begins clean, while saved rows stay in the database.
+
+## Getting started
+
+All code lives in `sovereign-companion/`. Everything except the voice conversation and the welcome
+audio generator works without any paid key: landing, registration, Creator Studio, assembly,
+checkout, questionnaire and the whole admin dashboard.
+
+### Requirements
+
+- Node.js 22 (the Docker image uses `node:22-alpine`) and npm
+- A Gemini API key only for the voice encounter and the TTS studio
+- Tuya Cloud credentials only if you want the booth lighting scenes (entered in the admin, stored in the database)
+
+### Run it locally
 
 ```bash
-# 1. Clone repo
 git clone https://github.com/nugrahalabib/Future-Companion.git
 cd Future-Companion/sovereign-companion
-
-# 2. Install dependencies
 npm install
+```
 
-# 3. Setup environment
-cp .env.example .env
-# Edit .env dan isi:
-#   - GEMINI_API_KEY (dari Google AI Studio)
-#   - NEXT_PUBLIC_GEMINI_API_KEY (sama, untuk browser)
-#   - ADMIN_PASSWORD (ganti dari default!)
+Create `sovereign-companion/.env` (there is no `.env.example` in the repo):
 
-# 4. Generate Prisma client + apply migrations
+```env
+DATABASE_URL="file:./dev.db"
+ADMIN_PASSWORD="choose-a-long-password"
+# Optional, needed only for the voice encounter and the TTS studio:
+GEMINI_API_KEY=""
+```
+
+Then create the Prisma client and the database, and start the app:
+
+```bash
 npx prisma generate
-npx prisma migrate dev
-
-# 5. Start dev server (port 2970)
+npx prisma migrate deploy
 npm run dev
 ```
 
-Buka http://localhost:2970 — siap digunakan.
+Open http://localhost:2970. The admin dashboard is at http://localhost:2970/admin and asks for
+`ADMIN_PASSWORD`. If `ADMIN_PASSWORD` is not set, the admin stays locked.
 
-### Optional: Prisma Studio (DB inspector)
+`npx prisma generate` is required: without it every API route fails with "@prisma/client did not
+initialize yet". The SQLite file is created at `sovereign-companion/prisma/dev.db` and is ignored by git.
 
-```bash
-npx prisma studio
-```
+### Environment variables
 
-### Optional: Production Build
+| Name | Needed for | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | everything | SQLite path, relative to `prisma/`. |
+| `ADMIN_PASSWORD` | the admin dashboard | Sent by the dashboard as the `x-admin-password` header. |
+| `GEMINI_API_KEY` | voice encounter, TTS studio | Used only on the server to mint one-use tokens. |
 
-```bash
-npm run build
-npm start
-```
+`docker-compose.yml` also passes `NEXT_PUBLIC_APP_URL` and `NEXT_PUBLIC_GEMINI_API_KEY`, but no
+source file reads them. Do not put a Gemini key in a `NEXT_PUBLIC_` variable.
 
----
+### Scripts (in `sovereign-companion/`)
 
-## 🚢 Deployment
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Development server on port 2970 |
+| `npm run build` | Production build (standalone output) |
+| `npm run start` | Serve the build on port 2970 |
+| `npm run start:prod` | Same, bound to 0.0.0.0 |
+| `npm run lint` | ESLint |
 
-### Docker (Recommended)
+There are no automated tests yet.
+
+### Docker
 
 ```bash
 cd sovereign-companion
-docker-compose up --build
+docker compose up --build
 ```
 
-`docker-compose.yml` mendefinisikan single service `app`. SQLite file ada di dalam container — untuk production dengan data durable, **mount volume** ke `/app/prisma/` atau switch `DATABASE_URL` + provider ke PostgreSQL.
+Put `DATABASE_URL`, `ADMIN_PASSWORD` and `GEMINI_API_KEY` in `sovereign-companion/.env` first; Compose
+reads them from there. The entrypoint runs `prisma migrate deploy`, then starts the server on port
+2970. `./prisma` is mounted into the container, so the database survives rebuilds. In production,
+put a reverse proxy with HTTPS in front and bind the port to localhost only.
 
-### Environment Variables Wajib
+### Research data and consent
 
-| Variable | Deskripsi | Contoh |
-|---|---|---|
-| `DATABASE_URL` | Connection string Prisma | `file:./dev.db` |
-| `GEMINI_API_KEY` | Server-side Gemini key (ephemeral token minter) | `AIza...` |
-| `NEXT_PUBLIC_GEMINI_API_KEY` | Browser-side (expose terbatas) | `AIza...` |
-| `ADMIN_PASSWORD` | Password dashboard admin | `change-me-in-prod` |
-| `NEXT_PUBLIC_APP_URL` | Public origin untuk absolute URL | `https://domain.com` |
+This app records personal data and conversations of real people: name or nickname, email, age range,
+profession, relationship status, companion choices, the full voice transcript and survey answers.
+If you run it with visitors:
 
-### Pre-Exhibition Gotchas
+- Keep the data use notice on the registration screen, and tell visitors in person that the
+  conversation is recorded and transcribed.
+- Get the approval your institution requires for research with human participants before you
+  collect data for publication, and follow Indonesia's personal data protection law (UU PDP) or
+  the rules where you run it.
+- Use the anonymize option when you export, and remember it replaces names and emails only:
+  transcripts and open answers can still contain personal details.
+- Keep `prisma/dev.db` off shared drives and out of git, and delete it when the study ends.
+- Only adults should take part: some persona options and prompts are written for adult visitors.
 
-⚠️ **`NEXT_PUBLIC_GEMINI_API_KEY` terekspos ke browser** — pasang rate limiting + key rotation sebelum public demo.
+### What was run for this page
 
-⚠️ **SQLite di dalam Docker image** — mount volume atau migrasi ke Postgres jika data harus survive redeploy.
+On 26 Nov 2026 a copy of `sovereign-companion/` in a temporary folder was run with `npm ci`,
+`npx prisma migrate deploy`, `npx prisma generate` and `next dev` on a local port, with a locally
+generated `ADMIN_PASSWORD` and no Gemini key. One demo visitor (`example.com` email) went through
+registration, Creator Studio, assembly and checkout in the browser. The voice stage was skipped
+because it needs a paid key, so its screen is not shown. The admin charts use 24 invented respondents
+written straight into the local SQLite file (names marked "(demo)", `example.com` emails, invented
+answers and transcript lines). They are not exhibition data.
 
-⚠️ **Akurasi STT Gemini bergantung aksen Indonesia + noise booth** — test dengan native speaker di lingkungan ramai.
+### Corrections to the earlier README
 
-⚠️ **Landing CTA hanya wipe browser state**, bukan SQLite — antar pengunjung booth tidak saling leak cache, tapi analytics merekam semua sesi.
+- There is no `.env.example`; create `.env` by hand as above.
+- `NEXT_PUBLIC_GEMINI_API_KEY` is not needed: the browser gets a one-use token from `/api/gemini-token`.
+- `npx prisma generate` must be run before the first start.
+- The schema has 12 models, not 6, and the Creator Studio has nine steps (an outfit step was added).
+- Inside the app the setting is the year 2075 (page title, footer, prompt, profession list).
+- The project folder is `sovereign-companion/`, not a root `Prototype-Future-AI/` folder.
 
----
+### Project structure
 
-## 📁 Struktur Project
-
-```
-Prototype-Future-AI/
-├── sovereign-companion/           ← Working directory utama
-│   ├── prisma/
-│   │   ├── schema.prisma          ← 6 model (User, CompanionConfig, dll)
-│   │   └── migrations/            ← Migration history
-│   ├── public/
-│   │   └── assets/
-│   │       ├── combine/           ← 16 composite portraits
-│   │       ├── detail-1on1/       ← Thumbnail category
-│   │       ├── fiture/            ← Feature overlays
-│   │       └── id-en/             ← i18n illustrations
-│   ├── src/
-│   │   ├── app/                   ← Next.js App Router pages + API routes
-│   │   │   ├── (8 user-flow pages)
-│   │   │   ├── admin/             ← 7-tab dashboard
-│   │   │   └── api/               ← REST endpoints
-│   │   ├── components/
-│   │   │   ├── admin/             ← AdminTabBar, RespondentDetailDrawer, dll
-│   │   │   ├── creator/           ← 8 step components
-│   │   │   ├── assembly/          ← AssemblyAnimation, FinalReveal
-│   │   │   ├── encounter/         ← Voice visualizer, transcript panel
-│   │   │   └── ui/                ← Shared primitives
-│   │   ├── lib/
-│   │   │   ├── companionAssets.ts ← Asset manifest + path resolver
-│   │   │   ├── systemPromptBuilder.ts ← Gemini prompt composer
-│   │   │   ├── demoMode.ts        ← Killswitch logic + password verify
-│   │   │   ├── analytics.ts       ← Dashboard aggregations
-│   │   │   └── i18n/dictionary.ts ← EN + ID translations
-│   │   └── stores/                ← Zustand stores (4 persisted)
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   ├── AGENTS.md                  ← Next.js 16 breaking-change notice
-│   └── .env.example               ← Template environment
-├── BRIEF.md                       ← Project brief asli + brainstorm
-├── CLAUDE.md                      ← Guidance internal tim
-└── README.md                      ← File ini
+```text
+sovereign-companion/
+  prisma/                schema.prisma (SQLite, 12 models) and migrations
+  public/docs/readme/         pre-rendered portraits per gender, thumbnails, flags
+  public/audio-worklets/ microphone recorder worklet
+  src/app/               stages: page (landing), register, creator, assembly, encounter, checkout,
+                         farewell, questionnaire, welcome; admin/* dashboard tabs
+  src/app/api/           visitor routes (users, companion-config, sessions, transcripts, survey,
+                         gemini-token, settings) and admin/* routes
+  src/components/        creator steps, assembly, encounter, checkout, questionnaire, admin panels
+  src/hooks/             useGeminiLive, useAudioRecorder, useAudioPlayer
+  src/lib/               system prompt builder, survey template, analytics, demo mode, i18n, tuya
+  src/stores/            Zustand stores persisted to localStorage
+  Dockerfile, docker-compose.yml, docker-entrypoint.sh
 ```
 
----
+The root also holds `BRIEF.md`, `CLAUDE.md` and `PROJECT-DEEP-DIVE.md`, the planning notes written
+while the piece was built.
 
-## 🗺️ Roadmap
+### License
 
-### ✅ Selesai
-- [x] 8-stage user flow end-to-end
-- [x] Creator Studio 8-step sequential (16 composite assets)
-- [x] Gemini Live voice encounter 5 menit
-- [x] Transcript persistence + word cloud
-- [x] Admin dashboard 7 tab (Overview / Respondents / Transcripts / Insights / Research / Export / Settings)
-- [x] Demo mode killswitch (manual + schedule)
-- [x] Bilingual EN/ID
-- [x] Server-side admin auth
-- [x] Single-container Docker deployment
-
-### 🚧 In Progress
-- [ ] Key rotation + rate limiting untuk `NEXT_PUBLIC_GEMINI_API_KEY`
-- [ ] Migrasi optional ke PostgreSQL untuk production scale
-- [ ] Sentiment analysis real-time (tidak hanya post-hoc regex)
-
-### 🔮 Future
-- [ ] Integrasi CRM untuk follow-up investor post-pameran
-- [ ] A/B testing framework untuk variasi copy landing
-- [ ] Multi-booth sync (centralized dashboard untuk pameran multi-kota)
-- [ ] Jurnal ilmiah publikasi dengan dataset anonymized
+MIT, see `LICENSE` (Copyright (c) 2026 Nugraha Labib Mujaddid). The portraits in `public/docs/readme/`
+are AI-generated images; check the terms of the generator before reusing them elsewhere.
 
 ---
 
-## 🤝 Kontribusi & Lisensi
-
-Proyek ini dikembangkan oleh **Nugraha Labib Mujaddid** untuk pameran Tech AI Future Indonesia 2026.
-
-Pull request, issue report, dan diskusi fitur sangat diterima. Jika kamu investor, akademisi, atau calon mitra, silakan reach out via email project.
-
-### ⭐ Support
-
-Jika kamu menemukan proyek ini menarik — **beri GitHub Star**. Ini membantu kami mengukur reach komunitas dan meningkatkan visibilitas di ekosistem AI Indonesia.
-
-### 📧 Kontak
-
-**Author:** Nugraha Labib Mujaddid
-**Email:** nugrahalabib@gmail.com
-**GitHub:** [@nugrahalabib](https://github.com/nugrahalabib)
-**Instagram:** [@nugrahalabib](https://instagram.com/nugrahalabib)
-**TikTok:** [@nugrahalabib](https://tiktok.com/@nugrahalabib)
-
-### 📄 Lisensi
-
-MIT — bebas digunakan untuk riset akademik dan inspirasi. Atribusi dihargai.
-
----
-
-<div align="center">
-
-**"Welcome to the future of companionship. Design your ultimate reality without the friction of human flaws."**
-
-*Dibuat dengan obsidian, cyan neon, dan sedikit sentuhan bio-green. 🌌*
-
-</div>
+<sub>Made by [Nugraha Labib Mujaddid](https://github.com/nugrahalabib) · [nugrahalabib.com](https://nugrahalabib.com) · [nugrahalabib@gmail.com](mailto:nugrahalabib@gmail.com)</sub>
