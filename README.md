@@ -373,3 +373,10 @@ are AI-generated images; check the terms of the generator before reusing them el
 ---
 
 <sub>Made by [Nugraha Labib Mujaddid](https://github.com/nugrahalabib) · [nugrahalabib.com](https://nugrahalabib.com) · [nugrahalabib@gmail.com](mailto:nugrahalabib@gmail.com)</sub>
+
+## Related
+
+- [Spead AI](https://github.com/nugrahalabib/spead-ai-showcase)
+- [AgentBuff](https://github.com/nugrahalabib/agentbuff-showcase)
+- [nugrahalabib.com](https://github.com/nugrahalabib/web-portfolio-3.0)
+- [All my work on GitHub](https://github.com/nugrahalabib)
